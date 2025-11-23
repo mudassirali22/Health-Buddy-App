@@ -10,13 +10,13 @@ import AddVitals from './components/Vitals/AddVitals';
 import VitalsList from './components/Vitals/VitalsLists/VitalsList';
 import VitalDetail from './components/Vitals/VitalDetails/VitalDetail';
 import Timeline from './components/Dashboard/Timeline';
-import Navbar from './components/Layout/Navbar';
-import Profile from './components/Layout/Profile';
+import Navbar from './components/Navbar/Navbar';
+import Profile from './components/Navbar/Profile';
 import ForgotPassword from './components/Auth/ForgotPassword';
 import ResetPassword from './components/Auth/ResetPassword';
 import ChangePassword from './components/Auth/ChangePassword';
-import Home from './components/Layout/Home'; 
-import PageNotFound from './components/Layout/PageNotFound';
+import Home from './components/pages/Home'; 
+import PageNotFound from './components/pages/PageNotFound';
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();

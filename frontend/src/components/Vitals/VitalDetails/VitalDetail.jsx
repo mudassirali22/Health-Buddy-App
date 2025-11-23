@@ -15,7 +15,7 @@ import NavigationTabs from './components/NavigationTabs';
 import PremiumHeader from './components/PremiumHeader';
 import AnalysisLoader from './components/AnalysisLoader';
 import AnalysisError from './components/AnalysisError';
-import PageNotFound from '../../Layout/PageNotFound';
+import PageNotFound from '../../pages/PageNotFound';
 
 const VitalDetail = () => {
   const { id } = useParams();
