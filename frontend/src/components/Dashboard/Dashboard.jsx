@@ -191,7 +191,7 @@ const Dashboard = () => {
                 </h2>
                 <NavLink
                   to="/upload-report"
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-2xl flex items-center gap-3 text-base font-semibold transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:-translate-y-0.5"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 sm:py-3 rounded-2xl flex items-center gap-3 text-base font-semibold transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:-translate-y-0.5"
                 >
                   <FaPlus className="text-sm" /> Add New Report
                 </NavLink>
@@ -263,7 +263,7 @@ const Dashboard = () => {
                 </h2>
                 <NavLink
                   to="/add-vitals"
-                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-2 rounded-2xl flex items-center gap-3 text-base font-semibold transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:-translate-y-0.5"
+                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-2 sm:py-3 rounded-2xl flex items-center gap-3 text-base font-semibold transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:-translate-y-0.5"
                 >
                   <FaPlus className="text-sm" /> Add New Vitals
                 </NavLink>
