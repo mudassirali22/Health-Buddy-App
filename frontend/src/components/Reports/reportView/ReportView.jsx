@@ -89,7 +89,6 @@ const ReportView = () => {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-      timeZone:'UTC'
     });
   };
 

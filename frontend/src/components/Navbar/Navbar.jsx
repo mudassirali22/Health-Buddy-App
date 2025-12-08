@@ -133,7 +133,7 @@ const Navbar = () => {
                           logout();
                           setIsProfileMenuOpen(false);
                         }}
-                        className="flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 w-full text-left transition-colors"
+                        className="flex items-center gap-3 px-4 py-3 text-sm cursor-pointer text-red-600 hover:bg-red-50 w-full text-left transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
                         Sign Out
