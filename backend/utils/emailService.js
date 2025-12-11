@@ -3,22 +3,26 @@ import nodemailer from 'nodemailer';
 const createTransporter = () => {
   try {
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
       tls: {
-        rejectUnauthorized: false
-      }
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
+      },
+      connectionTimeout: 60000,
+      socketTimeout: 60000,
     });
 
     transporter.verify((error, success) => {
       if (error) {
-        console.error('Gmail connection failed:', error);
+        console.error('Gmail connection failed:', error.message);
+      } else {
+        console.log('Gmail server is ready');
       }
     });
 
@@ -28,7 +32,6 @@ const createTransporter = () => {
     throw error;
   }
 };
-
 
 // Send password reset email
 export const sendPasswordResetEmail = async (email, resetToken, userAgent = 'Unknown') => {
