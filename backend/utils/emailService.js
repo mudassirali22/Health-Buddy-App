@@ -336,9 +336,12 @@ export const sendPasswordResetEmail = async (email, resetToken, userAgent = 'Unk
   
     return true;
   } catch (error) {
-    console.error('Failed to send password reset email:', error);
-    throw new Error('Could not send reset email. Please try again.');
-  }
+      console.error('❌ REAL EMAIL ERROR:');
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('---------------');
+  throw new Error('Could not send reset email. Please try again.');
+}
 };
 
 // Send password change confirmation
