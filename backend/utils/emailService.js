@@ -335,13 +335,10 @@ export const sendPasswordResetEmail = async (email, resetToken, userAgent = 'Unk
     const info = await transporter.sendMail(mailOptions);
   
     return true;
-  } catch (error) {
-      console.error('❌ REAL EMAIL ERROR:');
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
-      console.error('---------------');
-  throw new Error('Could not send reset email. Please try again.');
-}
+    } catch (error) {
+      console.error('Failed to send password reset email:');
+      throw new Error('Could not send reset email. Please try again.');
+    }
 };
 
 // Send password change confirmation
