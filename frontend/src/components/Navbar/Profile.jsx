@@ -1,396 +1,256 @@
 import { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import api from '../../services/api';
+import { useFamily } from '../../context/FamilyContext';
+import { useNavigate } from 'react-router-dom';
+import ConfirmModal from '../common/ConfirmModal';
 import { 
-  User, Mail, Phone, Cake, 
-  VenusAndMars, Droplets, MapPin, 
-  Edit, Save, Shield, Download, 
-  Calendar, Star, CheckCircle, 
-  RefreshCw,AlertTriangle,HeartPulse,
+  Save, 
+  Hash, 
+  Copy, 
+  Check,
+  ShieldCheck,
+  Lock,
+  LogOut,
+  ChevronRight,
+  Loader2,
+  User,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  Edit2
 } from 'lucide-react';
 
 const Profile = () => {
-const { user, setUser } = useAuth();
-const [isEditing, setIsEditing] = useState(false);
-const [isLoading, setIsLoading] = useState(false);
-const [saveStatus, setSaveStatus] = useState('');
-const [formData, setFormData] = useState({
-  name: '',
-  email: '',
-  phoneNumber: '',
-  age: '',
-  gender: '',
-  bloodGroup: '',
-  address: '',
-});
+  const { user, setUser, logout } = useAuth();
+  const { selectedFamilyMember, updateFamilyMember } = useFamily();
+    const navigate = useNavigate();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [copiedMR, setCopiedMR] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phoneNumber: '',
+    age: '',
+    gender: '',
+    bloodGroup: '',
+    address: '',
+  });
 
-useEffect(() => {
-  const fetchProfile = async () => {
+  const isPrimary = !selectedFamilyMember;
+  const currentIdentity = selectedFamilyMember || user;
+
+  useEffect(() => {
+    if (currentIdentity) {
+      setFormData({
+        name: currentIdentity.name || '',
+        email: currentIdentity.email || '',
+        phoneNumber: currentIdentity.phoneNumber || '',
+        age: currentIdentity.age || '',
+        gender: currentIdentity.gender || '',
+        bloodGroup: currentIdentity.bloodGroup || '',
+        address: currentIdentity.address || '',
+      });
+    }
+  }, [selectedFamilyMember, user]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get('/auth/me');
-      const profile = res.data.user;
-      if (profile) {
-        setUser(profile);
-        setFormData({
-          name: profile.name || '',
-          email: profile.email || '',
-          phoneNumber: profile.phoneNumber || '',
-          age: profile.age || '',
-          gender: profile.gender || '',
-          bloodGroup: profile.bloodGroup || '',
-          address: profile.address || '',
-        });
-      }
+      const payload = { ...formData };
+      if (payload.age) payload.age = Number(payload.age);
+      else payload.age = null;
+
+      if (isPrimary) {
+        const res = await api.put('/auth/update-profile', payload);
+        setUser({ ...user, ...res.data.data, isAdmin: true, accountType: 'admin' });
+              } else {
+        const result = await updateFamilyMember(currentIdentity._id, payload);
+        if (!result.success) throw new Error(result.error);
+              }
+      setIsEditing(false);
     } catch (err) {
-      console.error('Profile fetch failed:', err);
-    } finally {
-     setIsLoading(false);
+      console.error('Save failed:', err);
+          } finally {
+      setIsLoading(false);
     }
   };
-  fetchProfile();
-}, [setUser]);
 
-const handleChange = (e) => {
-  setFormData({ ...formData, [e.target.name]: e.target.value });
-  setSaveStatus('');
-};
-
-const handleSave = async () => {
-  setIsLoading(true);
-    ('saving');
-  try {
-    const res = await api.put('/auth/update-profile', formData);
-    const updated = res.data.data;
-    setUser(updated);
-    setFormData(updated);
-    setSaveStatus('success');
-    setTimeout(() => {
-      setIsEditing(false);
-      setSaveStatus('');
-    }, 2000);} catch (err) {
-  console.error('Update failed:', err);
-  setSaveStatus('error');
-} finally {
-  setIsLoading(false);
-  }
-};
-
-
-const getMemberSince = (dateString) => {
-  const date = new Date(dateString);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  const handleCancel = () => {
+    setIsEditing(false);
+    if (currentIdentity) {
+      setFormData({
+        name: currentIdentity.name || '',
+        email: currentIdentity.email || '',
+        phoneNumber: currentIdentity.phoneNumber || '',
+        age: currentIdentity.age || '',
+        gender: currentIdentity.gender || '',
+        bloodGroup: currentIdentity.bloodGroup || '',
+        address: currentIdentity.address || '',
+      });
+    }
   };
 
-const getCompletionPercentage = () => {
-  const fields = Object.values(formData);
-  const filledFields = fields.filter(value => {
-    if (value === null || value === undefined) return false;
-    if (typeof value === 'string') return value.trim() !== '';
-    if (typeof value === 'number') return value !== '';
-    return Boolean(value);
-  }).length;
-  return Math.round((filledFields / fields.length) * 100);
-};
+  const copyMRNumber = () => {
+    if (currentIdentity?.mrNumber) {
+      navigator.clipboard.writeText(currentIdentity.mrNumber);
+      setCopiedMR(true);
+            setTimeout(() => setCopiedMR(false), 2000);
+    }
+  };
 
-  if (!user) return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="text-center p-8 bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20">
-        <div className="w-20 h-20 bg-gradient-to-r from-green-400 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-          <User className="text-white text-2xl" />
-        </div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Access Required</h2>
-        <p className="text-gray-600 text-lg mb-6">Please login to view your profile</p>
-        <NavLink
-         to ="/login" 
-         className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-          Sign In
-        </NavLink>
-      </div>
-    </div>
-  );
+  const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
 
-  const fields = [
-    { name: 'name', icon: <User className="text-blue-500 w-5 h-5" />, label: 'Full Name', type: 'text' },
-    { name: 'email', icon: <Mail className="text-green-500 w-5 h-5" />, label: 'Email Address', type: 'email' },
-    { name: 'phoneNumber', icon: <Phone className="text-purple-500 w-5 h-5" />, label: 'Phone Number', type: 'tel' },
-    { name: 'age', icon: <Cake className="text-pink-500 w-5 h-5" />, label: 'Age', type: 'number' },
-    { 
-      name: 'gender', 
-      icon: <VenusAndMars className="text-red-500 w-5 h-5" />, 
-      label: 'Gender', 
-      type: 'select',
-      options: ['Male', 'Female', 'Other', 'Prefer not to say']
-    },
-    { 
-      name: 'bloodGroup', 
-      icon: <Droplets className="text-red-600 w-5 h-5" />, 
-      label: 'Blood Group', 
-       type: 'select',
-      options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
-    },
-    { name: 'address', icon: <MapPin className="text-orange-500 w-5 h-5" />, label: 'Address', type: 'textarea' },
-  ];
+  const confirmLogout = () => {
+    logout();
+    navigate('/auth');
+  };
+
+  const inputClass = "w-full bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none";
+  const viewClass = "w-full bg-gray-50 rounded-lg px-4 py-2 text-sm font-bold text-gray-800 border border-transparent min-h-[38px] flex items-center";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-
-        {/* Header*/}
-        <div className="relative bg-gradient-to-r from-emerald-600 via-green-500 to-teal-600 rounded-3xl shadow-2xl p-8 mb-8 text-white overflow-hidden">
-          <div className="absolute inset-0 bg-black/10"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12"></div>
-          
-          <div className="relative flex flex-col lg:flex-row items-center justify-between">
-            <div className="flex items-center space-x-6 mb-6 lg:mb-0">
-              <div className="relative">
-              <div className="w-23 h-23 sm:w-24 sm:h-24 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border-2 border-white/30 shadow-2xl">
-                <User className="w-10 h-10" />
-              </div>
-            </div>
-              <div>
-                <h1 className=" text-2xl sm:text-3xl font-bold mb-2">{formData.name || 'User Profile'}</h1>
-                <p className="text-green-100 opacity-90 flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  {formData.email}
-                </p>
-                <div className="flex items-center gap-4 mt-3">
-                  <span className="bg-white/20 backdrop-blur-sm px-3 py-2 rounded-full text-sm font-medium">
-                    {getCompletionPercentage()}% Complete
-                  </span>
-                  <span className="bg-white/20 backdrop-blur-sm px-3 py-2 rounded-full text-sm font-medium flex items-center gap-1">
-                    Patient
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="text-center bg-white/20 backdrop-blur-lg rounded-2xl px-15 py-3 sm:py-2 sm:px-5   border border-white/30 shadow-lg">
-              <div className="text-sm font-semibold text-green-100">Member Since</div>
-              <div className="text-lg sm:text-2xl font-bold text-white mt-1">{getMemberSince(user.createdAt)}</div>
-              <div className="w-15 sm:w-12 h-1 bg-green-300 rounded-full mx-auto mt-2"></div>
+    <div className="max-w-5xl mx-auto py-8 px-4 space-y-6">
+      
+      {/* Header Card */}
+      <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-6">
+          <div className="w-15 h-15 bg-emerald-600 rounded-xl flex items-center justify-center text-3xl font-black text-white shadow-md">
+            {currentIdentity?.name?.charAt(0)?.toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 leading-tight">{currentIdentity?.name}</h1>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-0.5 rounded">
+                {isPrimary ? 'Primary Account' : `Family Member · ${selectedFamilyMember?.relation || ''}`}
+              </span>
+              <button onClick={copyMRNumber} className="flex items-center gap-1.5 text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:bg-emerald-50 px-2 py-0.5 rounded transition-colors">
+                <Hash size={10} /> {currentIdentity?.mrNumber}
+                {copiedMR ? <Check size={10} /> : <Copy size={10} className="text-gray-300" />}
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-          {/* Profile Card */}
-          <div className="xl:col-span-3">
-            <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl overflow-hidden border border-white/20">
-              {/* Card Header */}
-              <div className="bg-gradient-to-r from-gray-50 to-blue-50 px-8 py-6 border-b border-gray-200/50">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <h2 className="text-lg sm:text-2xl font-bold text-gray-800 flex items-center gap-3">
-                    <div className="w-11 h-11 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                      <User className="text-white w-6 h-6" />
-                    </div>
-                    <div>
-                      Personal Information
-                      <div className="w-50 sm:w-60 h-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full mt-1"></div>
-                    </div>
-                  </h2>
-                  
-                  {!isEditing && (
-                    <button 
-                      onClick={() => setIsEditing(true)}
-                      className="group bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 font-semibold"
-                    >
-                      <Edit className="w-4 h-4 group-hover:rotate-12 transition-transform" /> 
-                      Edit Profile
-                    </button>
-                  )}
+        <div className="flex gap-2">
+          {isEditing ? (
+            <>
+              <button onClick={handleSave} disabled={isLoading} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50">
+                {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save
+              </button>
+              <button onClick={handleCancel} className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-2 rounded-lg font-bold transition-all">Cancel</button>
+            </>
+          ) : (
+            <button onClick={() => setIsEditing(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2">
+              <User size={18} /> Edit Profile
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Main Info */}
+        <div className="md:col-span-2 space-y-6">
+          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+            <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-4 mb-6">Personal Information</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
+                {isEditing ? <input type="text" name="name" value={formData.name} onChange={handleChange} className={inputClass} /> : <div className={viewClass}>{formData.name}</div>}
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+                {isEditing ? <input type="email" name="email" value={formData.email} onChange={handleChange} className={inputClass} /> : <div className={viewClass}>{formData.email}</div>}
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Phone Number</label>
+                {isEditing ? <input type="tel" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} className={inputClass} placeholder="0300-1234567" /> : <div className={viewClass}>{formData.phoneNumber || 'Not specified'}</div>}
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Age</label>
+                {isEditing ? <input type="number" name="age" value={formData.age} onChange={handleChange} className={inputClass} /> : <div className={viewClass}>{formData.age ? `${formData.age} yrs` : 'Not specified'}</div>}
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Gender</label>
+                {isEditing ? (
+                  <select name="gender" value={formData.gender} onChange={handleChange} className={inputClass}>
+                    <option value="">Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                ) : <div className={viewClass}>{formData.gender || 'Not specified'}</div>}
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Blood Group</label>
+                {isEditing ? (
+                  <select name="bloodGroup" value={formData.bloodGroup} onChange={handleChange} className={inputClass}>
+                    <option value="">Select</option>
+                    {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                  </select>
+                ) : <div className={viewClass}>{formData.bloodGroup || 'Not specified'}</div>}
+              </div>
+            </div>
+            <div className="mt-6 space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Residential Address</label>
+              {isEditing ? <input type="text" name="address" value={formData.address} onChange={handleChange} className={inputClass} /> : <div className={viewClass}>{formData.address || 'Not specified'}</div>}
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+            <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-4 mb-4">Account Security</h2>
+            <div className="space-y-2">
+              <button onClick={() => navigate('/change-password')} className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-emerald-50 rounded-lg transition-all group">
+                <div className="flex items-center gap-3">
+                  <Lock size={16} className="text-gray-400 group-hover:text-emerald-600" />
+                  <span className="text-xs font-bold text-gray-700">Change Password</span>
                 </div>
-              </div>
-
-              {/* Card Content */}
-              <div className="p-8">
-                {isLoading && !isEditing ? (
-                  <div className="flex justify-center items-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-                  </div>
-                ) : isEditing ? (
-                  <div className="space-y-8">
-
-                    {/* Save Status Indicator */}
-                    {saveStatus && (
-                      <div className={`p-4 rounded-xl border ${
-                        saveStatus === 'saving' ? 'bg-blue-50 border-blue-200' :
-                        saveStatus === 'success' ? 'bg-green-50 border-green-200' :
-                        'bg-red-50 border-red-200'
-                      }`}>
-                        <div className="flex items-center gap-3">
-                          {saveStatus === 'saving' && <RefreshCw className="animate-spin text-blue-500 w-5 h-5" />}
-                          {saveStatus === 'success' && <CheckCircle className="text-green-500 w-5 h-5" />}
-                          <span className={`font-medium ${
-                            saveStatus === 'saving' ? 'text-blue-700' :
-                            saveStatus === 'success' ? 'text-green-700' :
-                            'text-red-700'
-                          }`}>
-                            {saveStatus === 'saving' ? 'Saving changes...' :
-                            saveStatus === 'success' ? 'Profile updated successfully!' :
-                            'Error updating profile. Please try again.'}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {fields.map((field) => (
-                        <div key={field.name} className="space-y-3">
-                          <label className="flex items-center gap-3 text-sm font-semibold text-gray-700">
-                            {field.icon}
-                            {field.label}
-                            <span className="text-red-500 ml-1">*</span>
-                          </label>
-                          
-                          {field.type === 'select' ? (
-                            <select
-                              name={field.name}
-                              value={formData[field.name] || ''}
-                              onChange={handleChange}
-                              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 bg-white hover:border-gray-300"
-                            >
-                              <option value="">Select {field.label}</option>
-                              {field.options.map(option => (
-                                <option key={option} value={option}>{option}</option>
-                              ))}
-                            </select>
-                          ) : field.type === 'textarea' ? (
-                            <textarea
-                              name={field.name}
-                              value={formData[field.name] || ''}
-                              onChange={handleChange}
-                              rows="3"
-                              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 bg-white hover:border-gray-300 resize-none break-words whitespace-pre-wrap overflow-wrap-anywhere"
-                              placeholder={`Enter your ${field.label.toLowerCase()}`}
-                            />
-                          ) : (
-                            <input
-                              type={field.type}
-                              name={field.name}
-                              value={formData[field.name] || ''}
-                              onChange={handleChange}
-                              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 bg-white hover:border-gray-300"
-                              placeholder={`Enter your ${field.label.toLowerCase()}`}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <div className="flex gap-4 pt-6 border-t border-gray-200">
-                      <button 
-                        onClick={handleSave}
-                        disabled={isLoading}
-                        className="group bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-5 sm:px-10 py-4 rounded-xl flex items-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold disabled:opacity-50 disabled:transform-none disabled:hover:shadow-lg"
-                      >
-                        {isLoading ? (
-                          <RefreshCw className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <Save className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                        )}
-                        {isLoading ? 'Saving...' : 'Save Changes'}
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setIsEditing(false);
-                        }}
-                        disabled={isLoading}
-                        className="border-2 border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 px-6  sm:px-9 sm:py-4 rounded-xl transition-all duration-300 font-semibold disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {fields.map((field) => (
-                      <div key={field.name} className="group bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 border-2 border-gray-200/50 hover:border-blue-300 hover:shadow-lg transition-all duration-500 transform hover:-translate-y-1">
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-                            {field.icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-500 font-semibold mb-2 ">{field.label}</p>
-                            <p className="text-gray-800 font-semibold sm:font-bold  text-md sm:text-lg break-words whitespace-pre-wrap overflow-wrap-anywhere">
-                              {formData[field.name] || (
-                                <span className="text-gray-400 italic font-normal">Not provided</span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                <ChevronRight size={14} className="text-gray-300" />
+              </button>
+              <button onClick={handleLogout} className="w-full flex items-center justify-between p-3 bg-red-50 hover:bg-red-100 rounded-lg transition-all group">
+                <div className="flex items-center gap-3">
+                  <LogOut size={16} className="text-red-500" />
+                  <span className="text-xs font-bold text-red-600">Logout</span>
+                </div>
+                <ChevronRight size={14} className="text-red-300" />
+              </button>
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-8">
-            {/* Medical Status Card */}
-            <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-6 border border-white/20">
-              <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-3 text-lg">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <HeartPulse className="text-white w-5 h-5" />
-                </div>
-                Medical Status
-              </h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-3 border-b border-gray-200/50">
-                  <span className="text-gray-600 font-medium">Blood Group</span>
-                  <span className="font-bold text-red-600 bg-red-50 px-4 py-2 rounded-xl border border-red-200">
-                    {formData.bloodGroup || 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-3 border-b border-gray-200/50">
-                  <span className="text-gray-600 font-medium">Age</span>
-                  <span className="font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200">
-                    {formData.age || 'N/A'} years
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-3">
-                  <span className="text-gray-600 font-medium">Gender</span>
-                  <span className="font-bold text-purple-600 bg-purple-50 px-4 py-2 rounded-xl border border-purple-200">
-                    {formData.gender || 'N/A'}
-                  </span>
-                </div>
-              </div>
+          <div className="bg-emerald-600 rounded-xl p-6 text-white shadow-md">
+            <div className="flex items-center gap-3 mb-2">
+              <ShieldCheck size={20} />
+              <h3 className="font-black text-xs uppercase tracking-widest">Verified Account</h3>
             </div>
-            
-            {/* Profile Completion Card */}
-            <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-3xl shadow-2xl p-6 text-white">
-              <h3 className="font-bold mb-4 text-white flex items-center gap-3">
-                <Star className="w-5 h-5 text-yellow-300 fill-current" />
-                Profile Completion
-              </h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-amber-100">Progress</span>
-                  <span className="text-2xl font-bold">{getCompletionPercentage()}%</span>
-                </div>
-                <div className="w-full bg-white/30 rounded-full h-3">
-                  <div 
-                    className="bg-white h-3 rounded-full transition-all duration-1000 ease-out"
-                    style={{ width: `${getCompletionPercentage()}%` }}
-                  ></div>
-                </div>
-                <p className="text-amber-100 text-sm">
-                  {getCompletionPercentage() === 100 
-                    ? 'Perfect! Your profile is complete!'
-                    : `Complete ${100 - getCompletionPercentage()}% `
-                  }
-                </p>
-              </div>
-            </div>
+            <p className="text-[10px] font-bold text-emerald-100 leading-relaxed">
+              Your profile is secured and verified by HealthBuddy. Your data is encrypted and private.
+            </p>
           </div>
         </div>
       </div>
+
+      <ConfirmModal 
+        isOpen={showLogoutModal}
+        title="Sign Out"
+        message="Are you sure you want to exit?"
+        confirmText="Sign Out"
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutModal(false)}
+        type="logout"
+      />
     </div>
   );
-}
-  export default Profile;
+};
+
+export default Profile;

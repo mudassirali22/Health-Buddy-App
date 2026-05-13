@@ -2,6 +2,7 @@ import express from 'express';
 import { 
   register, 
   login, 
+  loginWithMR,
   getMe, 
   updateProfile,
   forgotPassword,
@@ -16,9 +17,11 @@ const router = express.Router();
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
+router.post('/login-mr', loginWithMR);
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
 router.get('/validate-reset-token/:token', validateResetToken);
+
 
 // Protected routes
 router.get('/me', protect, getMe);

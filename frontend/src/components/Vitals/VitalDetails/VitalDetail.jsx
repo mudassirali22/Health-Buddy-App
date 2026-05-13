@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
 import { 
   Heart, CheckCircle, AlertCircle,
-  AlertTriangle, Award, Crown
+  AlertTriangle, Award, Crown,
+  ArrowLeft, BrainCircuit, Calendar, Sparkles, Loader,
+  ShieldCheck, Zap, Activity, Info
 } from 'lucide-react';
 import OverviewContent from './components/OverviewContent';
 import MetricsContent from './components/MetricsContent';
@@ -12,7 +14,6 @@ import InsightsContent from './components/InsightsContent';
 import ActionsContent from './components/ActionsContent';
 import LoadingState from './components/LoadingState';
 import NavigationTabs from './components/NavigationTabs';
-import PremiumHeader from './components/PremiumHeader';
 import AnalysisLoader from './components/AnalysisLoader';
 import AnalysisError from './components/AnalysisError';
 import PageNotFound from '../../pages/PageNotFound';
@@ -27,10 +28,8 @@ const VitalDetail = () => {
   const [aiError, setAiError] = useState(null);
   const [trendData, setTrendData] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedMetric, setSelectedMetric] = useState(null);
   const [userVitals, setUserVitals] = useState([]);
 
-  // Load saved analysis from localStorage 
   useEffect(() => {
     const savedAnalysis = localStorage.getItem(`ai-analysis-${id}`);
     if (savedAnalysis) {
@@ -42,7 +41,6 @@ const VitalDetail = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-
         const vitalResponse = await api.get(`/vitals/${id}`);
         if (vitalResponse.data?.data) {
           setVital(vitalResponse.data.data);
@@ -65,89 +63,46 @@ const VitalDetail = () => {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [id]);
 
-  //  fallback for when AI fails
   const getSimpleFallback = (vitalData) => {
-    const vitalCount = Object.keys(vitalData).filter(key => 
-      vitalData[key] !== null && vitalData[key] !== undefined &&
-      !['notes', 'date', 'createdAt', 'updatedAt', 'source'].includes(key)
-    ).length;
-
     return {
       overallAssessment: {
         score: 75,
         status: "Data Recorded",
-        riskLevel: "Unknown",
-        summary: "Vital data recorded successfully. AI analysis temporarily unavailable.",
-        keyFindings: [`${vitalCount} vital parameters recorded`],
-        urgency: "Routine",
-        confidence: "Low",
-        improvement: 0,
-        stability: "Unknown"
+        summary: "Vital data recorded successfully. AI analysis required for full clinical insights.",
+        keyFindings: ["Metrics registered in clinical history"],
+        urgency: "Routine"
       },
       metricAnalysis: {},
       aiRecommendations: {
-        immediateActions: ["Try AI analysis again later", "Consult healthcare provider if concerned"],
-        lifestyleChanges: ["Maintain healthy habits", "Regular exercise", "Balanced nutrition"],
-        medicalConsultation: ["Schedule routine check-up"],
-        monitoringSuggestions: ["Continue tracking vital signs"],
-        dietaryRecommendations: [],
-        exerciseRecommendations: [],
-        sleepRecommendations: [],
-        stressManagement: []
-      },
-      trendInsights: "AI analysis required for detailed insights",
-      redFlags: ["No AI analysis available"],
-      positiveIndicators: ["Vital data successfully recorded"],
-      nextSteps: ["Retry AI analysis", "Consult medical professional"],
-      aiMetadata: {
-        analyzedAt: new Date().toISOString(),
-        model: "Basic Fallback",
-        confidence: 0,
-        disclaimer: "AI analysis unavailable. Basic data recording only.",
-        version: "1.0"
+        immediateActions: ["Consult healthcare provider if metrics are outside normal ranges"],
+        lifestyleChanges: ["Maintain hydration", "Regular physical activity"],
+        medicalConsultation: ["Routine follow-up"],
+        monitoringSuggestions: ["Continue daily tracking"]
       }
     };
   };
 
-  // AI Analysis
   const getAIAnalysis = async () => {
     if (!vital) return;
-    
     setAiLoading(true);
     setAiError(null);
-    
     try {
       const response = await api.post('/gemini/analyze-vitals', {
         vitalData: vital,
         previousData: trendData.length > 1 ? trendData[trendData.length - 2] : null
       });
-      
-      let analysis;
-      
-      if (response.data && response.data.success) {
-        analysis = response.data.analysis;
-      } else if (response.data && response.data.fallbackAnalysis) {
-        analysis = response.data.fallbackAnalysis;
-        setAiError('AI service returned analysis');
-      } else {
-        throw new Error('Invalid response format');
+      if (response.data && (response.data.success || response.data.fallbackAnalysis)) {
+        const analysis = response.data.analysis || response.data.fallbackAnalysis;
+        setAiAnalysis(analysis);
+        localStorage.setItem(`ai-analysis-${id}`, JSON.stringify(analysis));
       }
-
-      // Save to localStorage
-      setAiAnalysis(analysis);
-      localStorage.setItem(`ai-analysis-${id}`, JSON.stringify(analysis));
-      
     } catch (error) {
-      console.error('AI Analysis Error:', error);
-      setAiError('AI analysis service temporarily unavailable');
-      
       const fallback = getSimpleFallback(vital);
       setAiAnalysis(fallback);
-      localStorage.setItem(`ai-analysis-${id}`, JSON.stringify(fallback));
+      setAiError('AI engine recalibrating. Basic assessment provided.');
     } finally {
       setAiLoading(false);
     }
@@ -155,7 +110,6 @@ const VitalDetail = () => {
 
   const healthMetrics = useMemo(() => {
     if (!aiAnalysis || !aiAnalysis.metricAnalysis) return [];
-    
     return Object.entries(aiAnalysis.metricAnalysis).map(([key, data]) => ({
       id: key,
       name: key.replace(/([A-Z])/g, ' $1').trim(),
@@ -165,91 +119,138 @@ const VitalDetail = () => {
   }, [aiAnalysis]);
 
   const getHealthScoreColor = (score) => {
-    if (score >= 90) return 'from-emerald-500 to-green-600';
-    if (score >= 80) return 'from-green-500 to-emerald-600';
-    if (score >= 70) return 'from-yellow-500 to-amber-600';
-    if (score >= 60) return 'from-orange-500 to-red-500';
-    return 'from-red-500 to-pink-600';
+    if (score >= 80) return 'from-emerald-500 to-emerald-600';
+    if (score >= 60) return 'from-amber-500 to-amber-600';
+    return 'from-red-500 to-red-600';
   };
 
   const getStatusIcon = (status) => {
     const icons = {
-      'Excellent': <Crown className="w-6 h-6" />,
-      'Very Good': <Award className="w-6 h-6" />,
-      'Good': <CheckCircle className="w-6 h-6" />,
-      'Fair': <AlertCircle className="w-6 h-6" />,
-      'Needs Attention': <AlertTriangle className="w-6 h-6" />,
-      'Critical': <AlertTriangle className="w-6 h-6" />,
-      'Data Recorded': <Heart className="w-6 h-6" />
+      'Excellent': <Crown size={24} />,
+      'Good': <CheckCircle size={24} />,
+      'Needs Attention': <AlertTriangle size={24} />,
+      'Critical': <AlertCircle size={24} />,
+      'Data Recorded': <Activity size={24} />
     };
-    return icons[status] || <Heart className="w-6 h-6" />;
+    return icons[status] || <Activity size={24} />;
   };
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
     });
   };
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'metrics':
-        return <MetricsContent healthMetrics={healthMetrics} />;
-      case 'trends':
-        return <TrendsContent trendData={trendData} formatDate={formatDate} />;
-      case 'insights':
-        return <InsightsContent aiAnalysis={aiAnalysis} getAIAnalysis={getAIAnalysis} />;
-      case 'actions':
-        return <ActionsContent aiAnalysis={aiAnalysis} />;
-      default:
-        return (
-          <OverviewContent 
-            aiAnalysis={aiAnalysis} 
-            vital={vital} 
-            healthMetrics={healthMetrics} 
-            getAIAnalysis={getAIAnalysis}
-            getHealthScoreColor={getHealthScoreColor}
-            getStatusIcon={getStatusIcon}
-            setSelectedMetric={setSelectedMetric}
-          />
-        );
-    }
-  };
-
-  if (loading) {
-    return <LoadingState />;
-  }
-
-  if (!vital) {
-    return <PageNotFound />;
-  }
+  if (loading) return <LoadingState />;
+  if (!vital) return <PageNotFound />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 text-gray-700">
-      <div className="fixed inset-0 opacity-10">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-green-500/10 animate-pulse"></div>
+    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-6">
+      
+      {/* Unified Header Banner */}
+      <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 overflow-hidden relative">
+        
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg ">
+            <BrainCircuit size={28} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Record Analysis</h1>
+            <p className="text-slate-500 text-sm font-medium mt-1 flex items-center gap-2">
+              <Calendar size={14} className="text-emerald-500" />
+              {formatDate(vital.date)}
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap gap-3 relative z-10">
+          <button 
+            onClick={getAIAnalysis} 
+            disabled={aiLoading} 
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-black transition-all shadow-lg  flex items-center gap-2 text-[10px] uppercase tracking-widest disabled:opacity-50"
+          >
+
+            {aiLoading ? 'Analyzing...' : 'Get AI Insights'}
+          </button>
+          <button onClick={() => navigate('/vitals')} className="bg-white border border-slate-100 text-slate-600 px-5 py-2.5 rounded-xl font-bold transition-all hover:bg-slate-50 flex items-center gap-2 text-xs uppercase tracking-wider">
+            <ArrowLeft size={16} /> Back
+          </button>
+        </div>
       </div>
 
-      <div className="relative z-10 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-8xl mx-auto">
-          <PremiumHeader 
-            navigate={navigate}
-            vital={vital}
-            formatDate={formatDate}
-            getAIAnalysis={getAIAnalysis}
-            aiLoading={aiLoading}
-          />
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-1 space-y-6">
+          {/* Navigation Tabs */}
+          <div className="standard-card p-2">
+            <div className="flex flex-wrap gap-1">
+              {[
+                { id: 'overview', label: 'Summary', icon: Activity },
+                { id: 'metrics', label: 'Health Markers', icon: ShieldCheck },
+                { id: 'trends', label: 'Past Trends', icon: Zap },
+                { id: 'insights', label: 'AI Advice', icon: Sparkles },
+                { id: 'actions', label: 'Action Plan', icon: Info }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                    activeTab === tab.id
+                      ? 'bg-emerald-600 text-white shadow-lg'
+                      : 'text-slate-500 hover:bg-emerald-50 hover:text-emerald-600'
+                  }`}
+                >
+                  <tab.icon size={14} />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          <NavigationTabs activeTab={activeTab} setActiveTab={setActiveTab} />
           {aiLoading && <AnalysisLoader />}
-
           {aiError && <AnalysisError aiError={aiError} />}
 
-          {renderTabContent()}
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {activeTab === 'metrics' && <MetricsContent healthMetrics={healthMetrics} />}
+            {activeTab === 'trends' && <TrendsContent trendData={trendData} formatDate={formatDate} />}
+            {activeTab === 'insights' && <InsightsContent aiAnalysis={aiAnalysis} getAIAnalysis={getAIAnalysis} />}
+            {activeTab === 'actions' && <ActionsContent aiAnalysis={aiAnalysis} />}
+            {activeTab === 'overview' && (
+              <OverviewContent 
+                aiAnalysis={aiAnalysis} 
+                vital={vital} 
+                healthMetrics={healthMetrics} 
+                getAIAnalysis={getAIAnalysis}
+                getHealthScoreColor={getHealthScoreColor}
+                getStatusIcon={getStatusIcon}
+                setSelectedMetric={() => {}}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Sidebar Info */}
+        <div className="lg:w-80 space-y-6">
+           <div className="bg-slate-800 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+              
+              <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-4">Integrity Status</h3>
+              <p className="text-xs font-medium opacity-80 leading-relaxed mb-6">
+                This diagnostic record is verified and secured within your clinical vault.
+              </p>
+              <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
+                 <ShieldCheck size={16} className="text-emerald-400" />
+                 <span className="text-[9px] font-black uppercase tracking-widest">Clinically Validated</span>
+              </div>
+           </div>
+
+           <div className="standard-card p-6">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Info size={14} className="text-emerald-500" /> Disclaimer
+              </h4>
+              <p className="text-[10px] font-medium text-slate-400 leading-relaxed uppercase tracking-wider">
+                Automated assessments are for tracking purposes. Always cross-reference with professional medical consultation.
+              </p>
+           </div>
         </div>
       </div>
     </div>

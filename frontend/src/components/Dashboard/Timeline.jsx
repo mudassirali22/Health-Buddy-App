@@ -1,561 +1,312 @@
 import { useState, useEffect, useMemo } from 'react';
-import { NavLink } from 'react-router-dom';
 import api from '../../services/api';
+import { useFamily } from '../../context/FamilyContext';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText,
-  HeartPulse,
-  BarChart3,
-  Calendar,
-  Filter,
-  Plus,
-  ArrowRight,
   Activity,
-  Droplets,
-  Scale,
-  Heart,
-  Clock,
+  Calendar,
+  Search,
   Sparkles,
+  ArrowRight,
+  Filter,
+  Clock,
+  History,
+  TrendingUp,
+  Thermometer,
+  Droplets,
   Zap,
-  Brain,
+  AlertCircle,
+  CheckCircle2,
   ChevronRight,
-  Eye,
-  TableOfContents,
-  History
+  Heart,
+  Scale
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Timeline = () => {
-  const [reports, setReports] = useState([]);
-  const [vitals, setVitals] = useState([]);
+  const { selectedFamilyMember } = useFamily();
   const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState([]);
   const [filter, setFilter] = useState('all');
-  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchTimelineData(true);
+    const interval = setInterval(() => fetchTimelineData(false), 10000);
+    return () => clearInterval(interval);
+  }, [selectedFamilyMember]);
 
-  const fetchData = async () => {
+  const fetchTimelineData = async (isInitial = false) => {
     try {
-      setError(null);
+      if (isInitial) setLoading(true);
+      const params = selectedFamilyMember ? { familyMember: selectedFamilyMember._id } : { familyMember: 'null' };
       const [reportsRes, vitalsRes] = await Promise.all([
-        api.get('/reports'),
-        api.get('/vitals')
+        api.get('/reports', { params }),
+        api.get('/vitals', { params })
       ]);
-      setReports(reportsRes.data.data);
-      setVitals(vitalsRes.data.data);
+
+      const reports = (reportsRes.data.data || []).map(r => ({
+        ...r,
+        type: 'report',
+        timestamp: new Date(r.date)
+      }));
+
+      const vitals = (vitalsRes.data.data || []).map(v => ({
+        ...v,
+        type: 'vital',
+        timestamp: new Date(v.date)
+      }));
+
+      const combined = [...reports, ...vitals].sort((a, b) => b.timestamp - a.timestamp);
+      setItems(combined);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      setError('Failed to load health data. Please try again.');
+      console.error('Timeline fetch error:', error);
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
-  const formatDate = useMemo(() => (date) => {
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const matchesFilter = filter === 'all' || item.type === filter;
+      const matchesSearch = 
+        item.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        item.reportType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.notes && item.notes.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchesFilter && matchesSearch;
+    });
+  }, [items, filter, searchTerm]);
+
+  const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
       month: 'short',
       day: 'numeric',
+      year: 'numeric'
     });
-  }, []);
-
-const getTimeAgo = (dateString) => {
-  if (!dateString) return "";
-
-  const now = new Date();
-  const todayStart = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  ));
-
-  const d = new Date(dateString);
-  const reportDate = new Date(Date.UTC(
-    d.getUTCFullYear(),
-    d.getUTCMonth(),
-    d.getUTCDate()
-  ));
-
-  const diffMs = todayStart - reportDate;
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-  return `${Math.floor(diffDays / 30)} months ago`;
-}
-
-  const getAllRecords = useMemo(() => {
-    const allRecords = [
-      ...reports.map(r => ({ ...r, type: 'report' })),
-      ...vitals.map(v => ({ ...v, type: 'vital' }))
-    ].filter(record => record && record._id && record.date);
-
-    return allRecords
-      .filter(record => {
-        if (filter === 'reports') return record.type === 'report';
-        if (filter === 'vitals') return record.type === 'vital';
-        return true;
-      })
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [reports, vitals, filter]);
-
-  const TimelineDot = ({ type }) => (
-    <div
-      className={`absolute top-4 lg:top-1.5 left-8 lg:left-1/2 w-6 h-6 rounded-full border-4 border-white transform -translate-x-1/2 z-10 shadow-lg ${
-        type === 'report' 
-          ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
-          : 'bg-gradient-to-r from-blue-500 to-cyan-600'
-      }`}
-    />
-  );
-
-  const DateCard = ({ date }) => (
-    <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-emerald-200 text-center min-w-[160px] group-hover:scale-103 transition-transform duration-300">
-      <div className="flex items-center justify-center gap-3 text-gray-600 mb-2">
-        <Calendar className="w-5 h-5" />
-        <span className="text-lg font-semibold">{formatDate(date)}</span>
-      </div>
-      <div className="flex items-center justify-center gap-2 text-gray-500 mb-3">
-        <Clock className="w-4 h-4" />
-        <span className="text-sm">{getTimeAgo(date)}</span>
-      </div>
-    </div>
-  );
-
-  // health journey days calculation 
-  const healthJourneyDays = useMemo(() => {
-    if (getAllRecords.length === 0) return 0;
-    const lastRecordDate = new Date(getAllRecords[getAllRecords.length - 1]?.date);
-    const today = new Date();
-    return Math.ceil((today - lastRecordDate) / (1000 * 60 * 60 * 24));
-  }, [getAllRecords]);
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center overflow-hidden">
-        <div className="text-center relative z-10">
-          <div className="relative mb-8">
-            <div className="w-20 h-20 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <div className="w-16 h-16 border-4 border-green-400 border-b-transparent rounded-full animate-spin animate-reverse absolute top-2 left-1/2 -translate-x-1/2"></div>
-            <TableOfContents  className="absolute inset-0 bg-green-200 rounded m-auto text-emerald-700 text-2xl animate-pulse" />
-          </div>
-          <div className="space-y-1">
-             <p className="text-2xl font-semibold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-               Loading Health Intelligence
-             </p>
-             <p className="text-slate-600 text-base">
-               Preparing your health timeline...
-             </p>
-           </div>
-            <div className="mt-6 flex justify-center space-x-2">
-                {[0, 1, 2].map((i) => (
-                    <div
-                    key={i}
-                    className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"
-                    style={{ animationDelay: `${i * 0.2}s` }}
-                    />
-                ))}
-            </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-cyan-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-25 h-25 sm:w-28 sm:h-28 bg-gradient-to-r from-red-500 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl">
-            <Brain className="text-5xl text-white" />
-          </div>
-          <h3 className="text-3xl font-bold text-gray-900 mb-4">
-            Unable to Load Data
-          </h3>
-          <p className="text-gray-600 text-xl mb-6">{error}</p>
-          <button
-            onClick={fetchData}
-            className="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-8 py-4 rounded-2xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-300 shadow-2xl hover:shadow-emerald-500/25 transform hover:-translate-y-1"
-          >
-            Try Again
-          </button>
-        </div>
+      <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-emerald-500/10 border-t-emerald-600 rounded-full animate-spin"></div>
+        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] animate-pulse">Retrieving Health Timeline...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-12">
-          <div className="flex items-center gap-6">
-            <div className="relative left-3">
-              <div className="w-14 h-14 sm:w-15 sm:h-15 bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-emerald-500/25">
-                <History className="w-10 h-10 text-white" />
-              </div>
-              <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full border-4 border-white flex items-center justify-center">
-                <Sparkles className="w-3 h-3 text-white" />
-              </div>
+    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 space-y-8 animate-in fade-in duration-500">
+      
+      {/* Header Banner - Dashboard Style */}
+      <div className="bg-white rounded-3xl p-8 border border-emerald-100 shadow-md  flex flex-col md:flex-row md:items-center justify-between gap-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50 rounded-full -translate-y-1/2 translate-x-1/2 opacity-20 blur-3xl"></div>
+        
+        <div className="relative z-10 flex items-center gap-6">
+          <div className="w-16 h-16 bg-emerald-600 from-emerald-600 to-emerald-700 rounded-2xl flex items-center justify-center text-white shadow-lg ">
+            <History size={32} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-none mb-2 uppercase">My Health Archive</h1>
+            <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+               {selectedFamilyMember ? `Recent logs for ${selectedFamilyMember.name}` : 'A complete history of your medical scans and vitals'}
             </div>
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-4 relative z-10">
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16} />
+            <input 
+              type="text" 
+              placeholder="Search health events..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-6 py-3.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500/10 outline-none w-full sm:w-64 transition-all"
+            />
+          </div>
+          <div className="flex bg-slate-100/50 p-1.5 rounded-2xl border border-slate-100">
+            {['all', 'report', 'vital'].map(f => (
+              <button 
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-emerald-600 text-white shadow-md ' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                {f}s
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* Stats Row - Dashboard Style */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+         <div className="bg-slate-800 rounded-3xl p-6 text-white shadow-md relative overflow-hidden group">
+            <div className="relative z-10">
+               <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Total Records</p>
+               <h3 className="text-3xl font-black">{items.length}</h3>
+            </div>
+            <History className="absolute bottom-[-10px] right-[-10px] text-white/5 group-hover:scale-110 transition-transform" size={80} />
+         </div>
+         <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-md  flex items-center justify-between">
             <div>
-              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent mb-2">
-                Health Timeline
-              </h1>
-              <p className="text-sm sm:text-lg text-gray-600 flex items-center gap-2">
-                Your complete health journey in one place
-              </p>
+               <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Medical Scans</p>
+               <h3 className="text-3xl font-black text-slate-800">{items.filter(i => i.type === 'report').length}</h3>
             </div>
-          </div>
-          <div className="flex gap-3 mt-6 lg:mt-0">
-            <NavLink
-              to="/upload-report"
-              className="group bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-4 sm:px-8 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-2xl hover:shadow-emerald-500/25 transform hover:-translate-y-1 flex items-center gap-3"
-            >
-              <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              Upload Report
-            </NavLink>
-            <NavLink
-              to="/add-vitals"
-              className="group bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white px-4 sm:px-8 py-4  rounded-2xl font-semibold transition-all duration-300 shadow-2xl hover:shadow-blue-500/25 transform hover:-translate-y-1 flex items-center gap-3"
-            >
-              <HeartPulse className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              Add Vitals
-            </NavLink>
-          </div>
-        </div>
-
-          {/* Stats Overview */}
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-           <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-emerald-200 hover:scale-105 transition-transform duration-300">
-             <div className="flex items-center justify-between">
-               <div>
-                 <p className="text-gray-600 text-sm font-medium mb-2">Total Records</p>
-                 <p className="text-3xl sm:text-4xl font-bold text-gray-900">{reports.length + vitals.length}</p>
-               </div>
-               <div className="w-15 h-15 bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
-                 <BarChart3 className="text-white text-lg sm:text-2xl" />
-               </div>
-             </div>
-           </div>
-          
-           <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-blue-200 hover:scale-105 transition-transform duration-300">
-             <div className="flex items-center justify-between">
-               <div>
-                 <p className="text-gray-600 text-sm font-medium mb-2">Medical Reports</p>
-                 <p className=" text-3xl sm:text-4xl font-bold text-gray-900">{reports.length}</p>
-                 <p className="text-blue-600 text-sm font-medium mt-2 flex items-center gap-1">
-                   <FileText className="w-4 h-4" />
-                   Latest: {reports[0]?.title || 'None'}
-                 </p>
-               </div>
-               <div className="w-15 h-15 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
-                 <FileText className="text-white text-lg sm:text-2xl" />
-               </div>
-             </div>
-           </div>
-
-           <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-purple-200 hover:scale-105 transition-transform duration-300">
-             <div className="flex items-center justify-between">
-               <div>
-                 <p className="text-gray-600 text-sm font-medium mb-2">Vital Records</p>
-                 <p className="text-3xl sm:text-4xl font-bold text-gray-900">{vitals.length}</p>
-                 <p className="text-purple-600 text-sm font-medium mt-2 flex items-center gap-1">
-                   <HeartPulse className="w-4 h-4" />
-                   Active monitoring
-                 </p>
-               </div>
-               <div className="w-15 h-15 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-                 <HeartPulse className="text-white text-lg sm:text-2xl" />
-               </div>
-             </div>
-           </div>
-
-           <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-orange-200 hover:scale-105 transition-transform duration-300">
-             <div className="flex items-center justify-between">
-               <div>
-                 <p className="text-gray-600 text-sm font-medium mb-2">Health Journey</p>
-                 <p className="text-2xl sm:text-3xl font-bold text-gray-900">
-                  {healthJourneyDays} days
-                </p>
-                <p className="text-orange-600 text-sm font-medium mt-2 flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  Continuous tracking
-                </p>
-              </div>
-              <div className="w-15 h-15 bg-gradient-to-r from-orange-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Calendar className="text-white text-lg sm:text-2xl" />
-              </div>
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center border border-emerald-100">
+               <FileText size={24} />
             </div>
-          </div>
-        </div>
-
-        {/* Filter Controls */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 mb-12 border border-emerald-200">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="flex items-center flex-col sm:flex-row gap-4">
-              <div className="w-14 h-14 bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Filter className="text-white text-lg sm:text-xl" />
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-2x text-center font-bold text-gray-800">Timeline Intelligence</h2>
-                <p className="text-gray-600 text-sm sm:text-md">Filter and explore your health data</p>
-              </div>
+         </div>
+         <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-md  flex items-center justify-between">
+            <div>
+               <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Vital Checks</p>
+               <h3 className="text-3xl font-black text-slate-800">{items.filter(i => i.type === 'vital').length}</h3>
             </div>
-            
-            <div className="flex bg-gray-100 flex-col md:flex-row rounded-2xl p-2">
-              <button
-                onClick={() => setFilter('all')}
-                aria-pressed={filter === 'all'}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
-                  filter === 'all'
-                    ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg'
-                    : 'text-gray-700 hover:bg-white'
-                }`}
+            <div className="w-12 h-12 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center border border-slate-100">
+               <Activity size={24} />
+            </div>
+         </div>
+         <div className="bg-emerald-600 rounded-3xl p-6 text-white shadow-md  flex items-center justify-between">
+            <div>
+               <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80 mb-2">Health Priority</p>
+               <h3 className="text-lg font-black uppercase tracking-tighter">AI Analysis</h3>
+            </div>
+            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
+               <Zap size={24} />
+            </div>
+         </div>
+      </div>
+
+      {/* Timeline List */}
+      <div className="relative pb-24">
+        {/* Central Spine */}
+        <div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-1 bg-emerald-600 from-emerald-500 via-slate-200 to-transparent -translate-x-1/2 opacity-30 rounded-full"></div>
+
+        <div className="space-y-20 relative">
+          <AnimatePresence mode="popLayout">
+            {filteredItems.length === 0 ? (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="py-32 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-md  mx-auto max-w-2xl"
               >
-                All ({reports.length + vitals.length})
-              </button>
-              <button
-                onClick={() => setFilter('reports')}
-                aria-pressed={filter === 'reports'}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
-                  filter === 'reports'
-                    ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg'
-                    : 'text-gray-700 hover:bg-white'
-                }`}
-              >
-                <FileText className="w-4 h-4" />
-                Reports ({reports.length})
-              </button>
-              <button
-                onClick={() => setFilter('vitals')}
-                aria-pressed={filter === 'vitals'}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
-                  filter === 'vitals'
-                    ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg'
-                    : 'text-gray-700 hover:bg-white'
-                }`}
-              >
-                <HeartPulse className="w-4 h-4" />
-                Vitals ({vitals.length})
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {getAllRecords.length === 0 ? (
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-16 text-center border border-emerald-200">
-            <div className="w-30 h-30 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl">
-              <Brain className="w-14 h-14 sm:w-15 sm:h-15 text-white" />
-            </div>
-            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
-              Start Your Health Journey
-            </h3>
-            <p className="text-gray-600 text-lg sm:text-xl mb-10 max-w-2xl mx-auto leading-relaxed">
-              Begin tracking your health with AI-powered insights. Upload medical reports and record vital signs to unlock personalized health intelligence.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <NavLink
-                to="/upload-report"
-                className="group bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 sm:px-10 py-4 rounded-2xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-300 shadow-2xl hover:shadow-emerald-500/25 transform hover:-translate-y-1 flex items-center gap-4 justify-center text-lg"
-              >
-                <FileText className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                Upload First Report
-              </NavLink>
-              <NavLink
-                to="/add-vitals"
-                className="group bg-gradient-to-r from-blue-500 to-cyan-600 text-white px-3 sm:px-10 py-4 rounded-2xl font-semibold hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 shadow-2xl hover:shadow-blue-500/25 transform hover:-translate-y-1 flex items-center gap-4 justify-center text-lg"
-              >
-                <HeartPulse className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                Record First Vitals
-              </NavLink>
-            </div>
-          </div>
-        ) : (
-          <div className="relative">
-
-            {/*Timeline line */}
-            <div className="absolute left-8 lg:left-1/2 top-0 bottom-0 w-2 bg-gradient-to-b from-emerald-400 via-green-400 to-green-300 transform -translate-x-1/2 shadow-lg"></div>
-
-            <div className="space-y-12">
-              {getAllRecords.map((record, index) => (
-                <div key={`${record.type}-${record._id}-${index}`} className="relative group">
-                  <TimelineDot type={record.type} />
+                 <div className="w-24 h-24 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto text-slate-300 mb-8 shadow-inner">
+                    <Search size={48} />
+                 </div>
+                 <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-3">No History Found</h2>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] max-w-xs mx-auto opacity-70 leading-relaxed">We couldn't find any health events in your archive. Start by adding a report or vitals.</p>
+              </motion.div>
+            ) : (
+              filteredItems.map((item, idx) => (
+                <motion.div 
+                  key={item._id}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-50px" }}
+                  transition={{ duration: 0.5, delay: Math.min(idx * 0.05, 0.3) }}
+                  className={`flex flex-col md:flex-row items-center gap-12 ${idx % 2 === 0 ? 'md:flex-row-reverse' : ''}`}
+                >
                   
-                  <div className={`flex flex-col lg:flex-row gap-8 ${index % 2 === 0 ? 'lg:flex-row' : 'lg:flex-row-reverse'}`}>
-                    {/* Date Card*/}
-                    <div className="lg:w-2/5 flex justify-center lg:justify-start">
-                      <DateCard date={record.date} />
-                    </div>
+                  {/* Date Tag */}
+                  <div className="hidden md:flex flex-1 justify-center">
+                     <div className="bg-slate-800 text-white px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg  flex items-center gap-3">
+                        <Calendar size={16} className="text-emerald-400" />
+                        {formatDate(item.date)}
+                     </div>
+                  </div>
 
-                    {/*Content Card */}
-                    <div className="lg:w-3/5 flex justify-center lg:justify-start">
-                      <div className={`bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border-2 hover:shadow-3xl transition-all duration-500 w-full max-w-2xl group hover:scale-102 ${
-                        record.type === 'report' 
-                          ? 'hover:border-emerald-300 border-emerald-200' 
-                          : 'hover:border-blue-300 border-blue-200'
-                      }`}>
-                        <div className="flex items-start justify-between mb-6">
-                          <div className="flex items-center gap-4">
-                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg ${
-                              record.type === 'report' 
-                                ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
-                                : 'bg-gradient-to-r from-blue-500 to-cyan-600'
-                            }`}>
-                              {record.type === 'report' ? (
-                                <FileText className="text-white text-lg sm:text-2xl" />
-                              ) : (
-                                <HeartPulse className="text-white text-lg sm:text-2xl" />
-                              )}
-                            </div>
-                            <div>
-                              <h3 className="text-lg sm:text-2xl font-bold text-gray-900 mb-1">
-                                {record.type === 'report' ? record.title : 'Vital Signs Analysis'}
-                              </h3>
-                              <div className="flex items-center gap-3">
-                                <p className={`text:md sm:text-lg font-semibold ${
-                                  record.type === 'report' ? 'text-emerald-600' : 'text-blue-600'
-                                }`}>
-                                  {record.type === 'report' ? 'Medical Report' : 'Health Metrics'}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {record.type === 'report' && (
-                            <span className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 px-4 py-2 rounded-xl text-sm font-semibold border border-emerald-200">
-                              {record.reportType}
+                  {/* Visual Node */}
+                  <div className="absolute left-8 md:left-1/2 w-16 h-16 bg-white rounded-[1.25rem] border-[6px] border-slate-50 flex items-center justify-center -translate-x-1/2 z-10 shadow-md group cursor-pointer" onClick={() => navigate(item.type === 'report' ? `/report/${item._id}` : `/vitals`)}>
+                     <div className={`w-full h-full rounded-xl flex items-center justify-center transition-all duration-500 group-hover:rotate-12 ${item.type === 'report' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'}`}>
+                        {item.type === 'report' ? <FileText size={24} /> : <Activity size={24} />}
+                     </div>
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="flex-1 w-full pl-20 md:pl-0">
+                    <div 
+                      onClick={() => navigate(item.type === 'report' ? `/report/${item._id}` : `/vitals`)}
+                      className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-lg  cursor-pointer group relative overflow-hidden hover:border-emerald-500 transition-all duration-500"
+                    >
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -translate-y-1/2 translate-x-1/2 opacity-50 group-hover:bg-emerald-50 transition-colors"></div>
+                      
+                      <div className="flex items-center justify-between mb-8 relative z-10">
+                         <div className="flex items-center gap-3">
+                            <span className={`text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-xl shadow-sm ${item.type === 'report' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'}`}>
+                               {item.type === 'report' ? 'Medical Scan Report' : 'Health Vital Signs'}
                             </span>
-                          )}
-                        </div>
-
-                        {record.type === 'report' ? (
-                          <div>
-                            {record.aiSummary?.english && (
-                              <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl p-6 mb-6 border border-gray-200">
-                                <div className="flex items-center gap-3 mb-3">
-                                  <Brain className="w-5 h-5 text-emerald-600" />
-                                  <span className="font-semibold text-gray-800">AI Analysis Summary</span>
-                                </div>
-                                <p className="text-gray-700 leading-relaxed text-md sm:text-lg">
-                                  {record.aiSummary.english}
-                                </p>
-                              </div>
+                            {item.reportType && (
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.reportType}</span>
                             )}
-                            <div className="flex items-center gap-4">
-                              <NavLink
-                                to={`/report/${record._id}`}
-                                className="group bg-gradient-to-r from-emerald-500 to-green-600 text-white px-8 py-4 rounded-2xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-3"
-                              >
-                                <Eye className="w-5 h-5" />
-                                View Full Analysis
-                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                              </NavLink>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-6">
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                              {record.bloodPressure?.systolic && (
-                                <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-5 border border-red-200 hover:scale-105 transition-transform duration-300">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <Activity className="w-6 h-6 text-red-600" />
-                                    <p className="text-sm font-semibold text-red-600">Blood Pressure</p>
-                                  </div>
-                                  <p className="font-bold text-red-700 text-lg sm:text-2xl mb-1">
-                                    {record.bloodPressure.systolic}/{record.bloodPressure.diastolic}
-                                  </p>
-                                  <p className="text-xs text-red-600 font-medium">mmHg</p>
-                                </div>
-                              )}
-                              {record.bloodSugar && (
-                                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-5 border border-purple-200 hover:scale-105 transition-transform duration-300">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <Droplets className="w-6 h-6 text-purple-600" />
-                                    <p className="text-sm font-semibold text-purple-600">Blood Sugar</p>
-                                  </div>
-                                  <p className="font-bold text-purple-700 text-lg sm:text-2xl mb-1">{record.bloodSugar}</p>
-                                  <p className="text-xs text-purple-600 font-medium">mg/dL</p>
-                                </div>
-                              )}
-                              {record.weight && (
-                                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-5 border border-blue-200 hover:scale-105 transition-transform duration-300">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <Scale className="w-6 h-6 text-blue-600" />
-                                    <p className="text-sm font-semibold text-blue-600">Weight</p>
-                                  </div>
-                                  <p className="font-bold text-blue-700 text-lg sm:text-2xl mb-1">{record.weight}</p>
-                                  <p className="text-xs text-blue-600 font-medium">kg</p>
-                                </div>
-                              )}
-                              {record.heartRate && (
-                                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-5 border border-green-200 hover:scale-105 transition-transform duration-300">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <Heart className="w-6 h-6 text-green-600" />
-                                    <p className="text-sm font-semibold text-green-600">Heart Rate</p>
-                                  </div>
-                                  <p className="font-bold text-green-700 text-lg sm:text-2xl mb-1">{record.heartRate}</p>
-                                  <p className="text-xs text-green-600 font-medium">bpm</p>
-                                </div>
-                              )}
-                            </div>
-                            
-                            {record.notes && (
-                              <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl p-6 border border-gray-200">
-                                <div className="flex items-center gap-3 mb-3">
-                                  <FileText className="w-5 h-5 text-gray-600" />
-                                  <p className="text-sm font-semibold text-gray-700">Clinical Notes</p>
-                                </div>
-                                <p className="text-gray-800 text-lg break-words leading-relaxed">{record.notes}</p>
-                              </div>
-                            )}
-                            
-                            <div className="flex items-center gap-4">
-                              <NavLink
-                                to={`/vitals/${record._id}`}
-                                className="group bg-gradient-to-r from-blue-500 to-cyan-600 text-white px-8 py-4 rounded-2xl font-semibold hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-3"
-                              >
-                                <Eye className="w-5 h-5" />
-                                 View Full AI Analysis
-                                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                              </NavLink>
-                            </div>
-                          </div>
-                        )}
+                         </div>
+                         <div className="flex items-center gap-2 md:hidden text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-4 py-1.5 rounded-xl">
+                            <Calendar size={14} className="text-emerald-500" /> {formatDate(item.date)}
+                         </div>
                       </div>
+
+                      <h3 className="text-3xl font-black text-slate-800 mb-8 group-hover:text-emerald-600 transition-colors tracking-tight uppercase leading-[0.9] relative z-10 max-w-[80%]">
+                         {item.type === 'report' ? item.title : 'Routine Health Check-up'}
+                      </h3>
+
+                      {item.type === 'vital' ? (
+                        <>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
+                           {[
+                             { label: 'Pulse', value: item.heartRate ? `${item.heartRate} BPM` : 'N/A', icon: Heart, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                             { label: 'Pressure', value: item.bloodPressure ? `${item.bloodPressure.systolic}/${item.bloodPressure.diastolic}` : 'N/A', icon: Activity, color: 'text-red-500', bg: 'bg-red-50' },
+                             { label: 'Glucose', value: item.bloodSugar ? `${item.bloodSugar} mg/dL` : 'N/A', icon: Droplets, color: 'text-blue-500', bg: 'bg-blue-50' },
+                             { label: 'Weight', value: item.weight ? `${item.weight} kg` : 'N/A', icon: Scale, color: 'text-purple-500', bg: 'bg-purple-50' }
+                           ].map(vital => (
+                             <div key={vital.label} className="bg-slate-50/80 p-5 rounded-3xl border border-slate-100 hover:bg-white hover:shadow-md transition-all group/v">
+                                <div className="flex items-center justify-between mb-4">
+                                   <div className={`w-10 h-10 ${vital.bg} rounded-xl flex items-center justify-center ${vital.color}`}>
+                                      <vital.icon size={20} />
+                                   </div>
+                                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full opacity-0 group-hover/v:opacity-100 transition-opacity"></div>
+                                </div>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{vital.label}</p>
+                                <p className="text-lg font-black text-slate-800">{vital.value}</p>
+                             </div>
+                           ))}
+                        </div>
+                        <div className="flex items-center justify-end gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-[0.2em] mt-8 group-hover:gap-3 transition-all">
+                           View Full Record <ArrowRight size={16} />
+                        </div>
+                      </>
+                      ) : (
+                        <div className="space-y-6 relative z-10">
+                           <div className="p-6 bg-slate-800 rounded-3xl text-slate-300 text-sm font-medium leading-relaxed italic border border-slate-700 shadow-lg relative">
+                              <Sparkles className="absolute top-4 right-4 text-emerald-500/30" size={24} />
+                              <p className="line-clamp-3">
+                                {typeof item.aiSummary === 'string' ? item.aiSummary : (item.aiSummary?.english || item.aiSummary?.mainObservations?.[0] || 'Report analysis processed successfully...')}
+                              </p>
+                           </div>
+                           <div className="flex flex-wrap items-center justify-between gap-6">
+                              <div className="flex items-center gap-4">
+                                 <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                                   item.priority === 'critical' ? 'bg-red-50 text-red-600 border border-red-100 shadow-sm' :
+                                   item.priority === 'abnormal' ? 'bg-amber-50 text-amber-600 border border-amber-100 shadow-sm' :
+                                   'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm'
+                                 }`}>
+                                    {item.priority || 'Normal'} Observation
+                                 </div>
+                                 <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest border-l border-slate-100 pl-4">Provider: {item.doctor || 'HEALTHBUDDY AI'}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-[0.2em] group-hover:gap-3 transition-all">
+                                 View Report Details <ArrowRight size={16} />
+                              </div>
+                           </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}    
-
-        {/* Health Journey Summary */}
-        {getAllRecords.length > 0 && (
-          <div className="mt-12 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl shadow-xl p-8 text-white">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className="text-lg sm:text-2xl font-bold mb-3">Your Health Journey</h3>
-                 <p className="text-green-100 text-md sm:text-lg">
-                  You've created {getAllRecords.length} health records across your journey. 
-                  Keep tracking for better insights!
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-6 mt-6 md:mt-0">
-                <div className="text-center">
-                  <div className="text-2xl sm:text-3xl font-bold">{reports.length}</div>
-                  <div className="text-green-100 text-sm">Medical Reports</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl sm:text-3xl font-bold">{vitals.length}</div>
-                  <div className="text-green-100 text-sm">Vital Records</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );

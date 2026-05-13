@@ -6,6 +6,11 @@ const vitalSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  familyMember: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FamilyMember',
+    default: null
+  },
   date: {
     type: Date,
     required: true

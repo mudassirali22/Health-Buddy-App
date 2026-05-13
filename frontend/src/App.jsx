@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import Login from './components/Auth/Login';
-import Register from './components/Auth/Register';
+import Auth from './components/Auth/Auth';
 import Dashboard from './components/Dashboard/Dashboard';
 import UploadReport from './components/Reports/UploadReport';
 import ReportView from './components/Reports/reportView/ReportView';
@@ -17,6 +16,9 @@ import ResetPassword from './components/Auth/ResetPassword';
 import ChangePassword from './components/Auth/ChangePassword';
 import Home from './components/pages/Home'; 
 import PageNotFound from './components/pages/PageNotFound';
+import SymptomChecker from './components/AI/SymptomChecker';
+import FamilyManagement from './components/Family/FamilyManagement';
+import React from 'react';
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
@@ -29,149 +31,55 @@ const PublicRoute = ({ children }) => {
   return !user ? children : <Navigate to="/dashboard" />;
 };
 
+// Layout wrapper for authenticated pages with navbar
+const AuthenticatedLayout = ({ children }) => {
+  return (
+    <div className="min-h-screen bg-slate-50/50">
+      <Navbar />
+      <main className="min-h-screen">
+        {children}
+      </main>
+    </div>
+  );
+};
+
 function App() {
   const { user } = useAuth();
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
-
-        {user && <Navbar />}
+      {user ? (
+        <AuthenticatedLayout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/reports" element={<ReportList />} />
+            <Route path="/upload-report" element={<UploadReport />} />
+            <Route path="/report/:id" element={<ReportView />} />
+            <Route path="/vitals" element={<VitalsList />} />
+            <Route path="/vitals/:id" element={<VitalDetail />} />
+            <Route path="/add-vitals" element={<AddVitals />} />
+            <Route path="/edit-vital/:id" element={<AddVitals />} />
+            <Route path="/edit-report/:id" element={<UploadReport />} />
+            <Route path="/timeline" element={<Timeline />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/change-password" element={<ChangePassword />} />
+            <Route path="/ai-assistant" element={<SymptomChecker />} />
+            <Route path="/family" element={<FamilyManagement />} />
+            <Route path="*" element={<PageNotFound />} />
+          </Routes>
+        </AuthenticatedLayout>
+      ) : (
         <Routes>
-          <Route
-            path="/"
-            element={ user ? <Dashboard/> : <Home />}
-            
-          />
-          
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
-
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <Register />
-              </PublicRoute>
-            }
-          />
-
-          <Route
-            path="/forgot-password"
-            element={
-              <PublicRoute>
-                <ForgotPassword />
-              </PublicRoute>
-            }
-          />
-
-          <Route
-            path="/reset-password/:token"
-            element={
-              <PublicRoute>
-                <ResetPassword />
-              </PublicRoute>
-            }
-          />
-
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/reports"
-            element={
-              <ProtectedRoute>
-                <ReportList />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/upload-report"
-            element={
-              <ProtectedRoute>
-                <UploadReport />
-              </ProtectedRoute>
-            }
-          />
-
-          {/*report details route */}
-          <Route
-            path="/report/:id"
-            element={
-              <ProtectedRoute>
-                <ReportView />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/vitals"
-            element={
-              <ProtectedRoute>
-                <VitalsList />
-              </ProtectedRoute>
-            }
-          />
-
-          {/*vital details route */}
-          <Route path="/vitals/:id" element={
-            <ProtectedRoute>
-              <VitalDetail />
-            </ProtectedRoute>
-            
-            } />
-
-          <Route
-            path="/add-vitals"
-            element={
-              <ProtectedRoute>
-                <AddVitals />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/timeline"
-            element={
-              <ProtectedRoute>
-                <Timeline />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/change-password"
-            element={
-              <ProtectedRoute>
-                <ChangePassword />
-              </ProtectedRoute>
-            }
-          />
-        <Route path="*" element={<PageNotFound />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+          <Route path="/login" element={<Navigate to="/auth" />} />
+          <Route path="/register" element={<Navigate to="/auth" />} />
+          <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+          <Route path="/reset-password/:token" element={<PublicRoute><ResetPassword /></PublicRoute>} />
+          <Route path="*" element={<PageNotFound />} />
         </Routes>
-      </div>
+      )}
     </Router>
   );
 }

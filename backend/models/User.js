@@ -2,6 +2,12 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
+// Generate unique MR Number
+const generateMRNumber = () => {
+  const num = Math.floor(10000 + Math.random() * 90000);
+  return `HB-${num}`;
+};
+
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -19,6 +25,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Password is required'],
     minlength: 6
+  },
+  mrNumber: {
+    type: String,
+    unique: true,
+    default: generateMRNumber
   },
   phoneNumber: {
     type: String,
@@ -58,8 +69,21 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Hash password before saving
+// Ensure MR Number uniqueness on save
 userSchema.pre('save', async function (next) {
+  // Generate unique MR if not set or on new doc
+  if (this.isNew && !this.mrNumber) {
+    let unique = false;
+    while (!unique) {
+      const mr = generateMRNumber();
+      const existing = await mongoose.model('User').findOne({ mrNumber: mr });
+      if (!existing) {
+        this.mrNumber = mr;
+        unique = true;
+      }
+    }
+  }
+  
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();

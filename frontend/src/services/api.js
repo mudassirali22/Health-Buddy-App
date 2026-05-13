@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_API_URL,
+  baseURL: `${import.meta.env.VITE_BACKEND_API_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -32,9 +32,9 @@ api.interceptors.response.use(
         localStorage.removeItem('token');
         delete api.defaults.headers.common['Authorization'];
 
-        // Only redirect if not already on login
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
+        // Only redirect if not already on auth page
+        if (!window.location.pathname.includes('/auth')) {
+          window.location.href = '/auth';
         }
       }
 

@@ -1,24 +1,32 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
+import { useFamily } from '../../context/FamilyContext';
 import { 
   ArrowLeft, 
-  Heart, 
-  Thermometer, 
-  Scale, 
   Activity, 
   Droplets,
+  Scale,
+  Thermometer,
+  Heart,
   Calendar,
-  Stethoscope,
-  ClipboardList,
+  Sparkles,
+  ChevronRight,
+  ShieldCheck,
+  Zap,
+  RotateCw,
+  X,
+  FileText,
   Save,
-  AlertCircle,
-  CheckCircle,
-  TrendingUp,
-  Dot
+  Loader2
 } from 'lucide-react';
 
 const AddVitals = () => {
+  const { id } = useParams();
+  const isEdit = !!id;
+  const { selectedFamilyMember } = useFamily();
+    const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     systolic: '',
@@ -30,338 +38,217 @@ const AddVitals = () => {
     notes: ''
   });
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(isEdit);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isEdit) {
+      fetchVital();
+    }
+  }, [id]);
+
+  const fetchVital = async () => {
+    try {
+      const res = await api.get(`/vitals/${id}`);
+      const v = res.data.data;
+      setFormData({
+        date: new Date(v.date).toISOString().split('T')[0],
+        systolic: v.bloodPressure?.systolic || '',
+        diastolic: v.bloodPressure?.diastolic || '',
+        bloodSugar: v.bloodSugar || '',
+        weight: v.weight || '',
+        temperature: v.temperature || '',
+        heartRate: v.heartRate || '',
+        notes: v.notes || ''
+      });
+    } catch (err) {
+      setError('Failed to fetch vital record.');
+          } finally {
+      setFetching(false);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    // Validate at least one vital is entered
-    if (!formData.systolic && !formData.bloodSugar && !formData.weight && 
-        !formData.temperature && !formData.heartRate) {
-      setError('Please enter at least one vital sign');
+    if (!formData.systolic && !formData.bloodSugar && !formData.weight && !formData.temperature && !formData.heartRate) {
+      setError('Please enter at least one health record.');
       return;
     }
-
     setLoading(true);
-
     try {
-      const dataToSend = {
-        date: formData.date,
-        notes: formData.notes
-      };
-
+      const dataToSend = { date: formData.date, notes: formData.notes };
       if (formData.systolic && formData.diastolic) {
-        dataToSend.bloodPressure = {
-          systolic: parseFloat(formData.systolic),
-          diastolic: parseFloat(formData.diastolic)
-        };
+        dataToSend.bloodPressure = { systolic: parseFloat(formData.systolic), diastolic: parseFloat(formData.diastolic) };
       }
-
-      // Add other vitals if provided
       if (formData.bloodSugar) dataToSend.bloodSugar = parseFloat(formData.bloodSugar);
       if (formData.weight) dataToSend.weight = parseFloat(formData.weight);
       if (formData.temperature) dataToSend.temperature = parseFloat(formData.temperature);
       if (formData.heartRate) dataToSend.heartRate = parseFloat(formData.heartRate);
-
-      await api.post('/vitals', dataToSend);
       
-      setSuccess('Vital signs recorded successfully!');
-      setTimeout(() => {
-        navigate('/vitals');
-      }, 1500);
+      if (!isEdit) {
+        dataToSend.familyMember = selectedFamilyMember?._id || null;
+        await api.post('/vitals', dataToSend);
+              } else {
+        await api.put(`/vitals/${id}`, dataToSend);
+              }
+      navigate('/vitals');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add vital signs');
-    } finally {
+      setError(err.response?.data?.message || 'Save failed. Please try again.');
+          } finally {
       setLoading(false);
     }
   };
 
-  const vitalCards = [
-    {
-      title: "Blood Pressure",
-      icon: Activity,
-      fields: [
-        { name: 'systolic', label: 'Systolic (Upper)', unit: 'mmHg', placeholder: '120', min: 0, max: 300 },
-        { name: 'diastolic', label: 'Diastolic (Lower)', unit: 'mmHg', placeholder: '80', min: 0, max: 200 }
-      ],
-      note: "Normal range: 90/60 to 120/80 mmHg",
-      color: "from-red-500 to-pink-600"
-    },
-    {
-      title: "Blood Sugar",
-      icon: Droplets,
-      fields: [
-        { name: 'bloodSugar', label: 'Blood Sugar', unit: 'mg/dL', placeholder: '95', min: 0, max: 600, step: 0.1 }
-      ],
-      note: "Fasting normal range: 70-100 mg/dL",
-      color: "from-purple-500 to-indigo-600"
-    },
-    {
-      title: "Weight",
-      icon: Scale,
-      fields: [
-        { name: 'weight', label: 'Weight', unit: 'kg', placeholder: '70', min: 0, max: 300, step: 0.1 }
-      ],
-      note: "Measure at the same time daily",
-      color: "from-blue-500 to-cyan-600"
-    },
-    {
-      title: "Temperature",
-      icon: Thermometer,
-      fields: [
-        { name: 'temperature', label: 'Temperature', unit: '°F', placeholder: '98.6', min: 90, max: 110, step: 0.1 }
-      ],
-      note: "Normal range: 97-99°F (36.1-37.2°C)",
-      color: "from-orange-500 to-amber-600"
-    },
-    {
-      title: "Heart Rate",
-      icon: Heart,
-      fields: [
-        { name: 'heartRate', label: 'Heart Rate', unit: 'bpm', placeholder: '72', min: 30, max: 200 }
-      ],
-      note: "Normal resting range: 60-100 bpm",
-      color: "from-green-500 to-emerald-600"
-    }
+  const vitalInputs = [
+    { label: "Blood Pressure", icon: Activity, fields: [{ name: 'systolic', unit: 'SYS' }, { name: 'diastolic', unit: 'DIA' }] },
+    { label: "Glucose Levels", icon: Droplets, fields: [{ name: 'bloodSugar', unit: 'mg/dL' }] },
+    { label: "Body Weight", icon: Scale, fields: [{ name: 'weight', unit: 'kg' }] },
+    { label: "Body Temperature", icon: Thermometer, fields: [{ name: 'temperature', unit: '°F' }] },
+    { label: "Heart Rate", icon: Heart, fields: [{ name: 'heartRate', unit: 'BPM' }] }
   ];
 
+  if (fetching) {
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] animate-pulse">Syncing Vital Statistics...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className='pb-5'>
-         <button
-            onClick={() => navigate(-1)}
-            className="bg-white text-green-600 hover:text-green-700 px-6 py-3 rounded-xl font-semibold flex items-center gap-3 shadow-lg hover:shadow-xl transition-all duration-300 border border-green-100 hover:border-green-200"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back 
-          </button>
-        </div>
-        {/* Header Section */}
-        <div className="flex items-center gap-4 mb-8">
-         
-          <div className="flex-1 text-center">
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-              Record Vital Signs
-            </h1>
-            <p className="text-gray-600 text-md sm:text-lg mt-2">Track your daily health metrics</p>
+    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-6">
+      
+      {/* Header Banner */}
+      <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 overflow-hidden relative">
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg ">
+            <Activity size={28} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight">{isEdit ? 'Edit Record' : 'Record Vitals'}</h1>
+            <p className="text-slate-500 text-sm font-medium mt-1">
+              {isEdit ? `Updating health record from ${formData.date}` : (selectedFamilyMember ? `Saving health records for ${selectedFamilyMember.name}` : "Keep track of your daily health profile.")}
+            </p>
           </div>
         </div>
+        <button onClick={() => navigate(-1)} className="bg-white border border-slate-100 text-slate-600 px-5 py-2.5 rounded-xl font-bold transition-all hover:bg-slate-50 flex items-center gap-2 text-xs uppercase tracking-wider">
+          <ArrowLeft size={16} /> Back
+        </button>
+      </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Form Section */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-green-100">
-              {error && (
-                <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl mb-6 flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 px-6 py-4 rounded-2xl mb-6 flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                  {success}
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Date Section */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100">
-                  <label htmlFor="date" className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
-                    <Calendar className="w-5 h-5 text-green-600" />
-                    Measurement Date *
-                  </label>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         <div className="lg:col-span-2 space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+               <div className="standard-card p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="text-emerald-500" size={18} />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Record Date</label>
+                  </div>
                   <input
                     type="date"
-                    id="date"
                     name="date"
                     required
                     value={formData.date}
                     onChange={handleChange}
-                    max={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 bg-white"
+                    className="bg-slate-50 border-none rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:ring-1 focus:ring-emerald-500 outline-none transition-all cursor-pointer"
                   />
-                </div>
+               </div>
 
-                {/* Vital Signs Grid */}
-                <div className="space-y-6">
-                  {vitalCards.map((card, index) => (
-                    <div key={index} className="bg-gray-50 rounded-2xl p-6 border border-gray-200 hover:border-green-200 transition-all duration-300">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-12 h-12 bg-gradient-to-r ${card.color} rounded-2xl flex items-center justify-center`}>
-                          <card.icon className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-md sm:text-lg font-bold text-gray-900">{card.title}</h3>
-                          <p className="text-xs sm:text-sm text-gray-600">{card.note}</p>
-                        </div>
-                      </div>
-
-                      <div className={`grid gap-4 ${card.fields.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                        {card.fields.map((field) => (
-                          <div key={field.name} className="space-y-2">
-                            <label htmlFor={field.name} className="block text-xs sm:text-sm font-medium text-gray-700">
-                              {field.label} ({field.unit})
-                            </label>
-                            <input
-                              type="number"
-                              id={field.name}
-                              name={field.name}
-                              value={formData[field.name]}
-                              onChange={handleChange}
-                              placeholder={field.placeholder}
-                              min={field.min}
-                              max={field.max}
-                              step={field.step || 1}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 bg-white hover:bg-gray-50"
-                            />
-                          </div>
-                        ))}
-                      </div>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {vitalInputs.map((input, idx) => (
+                    <div key={idx} className="standard-card p-6 group">
+                       <div className="flex items-center gap-3 mb-6">
+                          <input.icon size={18} className="text-emerald-500 group-hover:scale-110 transition-transform" />
+                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{input.label}</h3>
+                       </div>
+                       <div className="space-y-3">
+                          {input.fields.map(field => (
+                            <div key={field.name} className="relative">
+                               <input
+                                 type="number"
+                                 name={field.name}
+                                 step="any"
+                                 min="0"
+                                 value={formData[field.name]}
+                                 onChange={handleChange}
+                                 placeholder={`Enter ${field.unit}`}
+                                 className="w-full bg-slate-50 border-none rounded-xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                               />
+                               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] font-black text-slate-300 uppercase tracking-widest">{field.unit}</span>
+                            </div>
+                          ))}
+                       </div>
                     </div>
                   ))}
-                </div>
+               </div>
 
-                {/* Notes Section */}
-                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-6 border border-blue-100">
-                  <label htmlFor="notes" className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
-                    <ClipboardList className="w-5 h-5 text-blue-600" />
-                    Additional Notes (Optional)
-                  </label>
+               <div className="standard-card p-6">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 block ml-1">Health Notes</label>
                   <textarea
-                    id="notes"
                     name="notes"
                     value={formData.notes}
                     onChange={handleChange}
-                    rows="4"
-                    placeholder="How are you feeling today? Any symptoms, medications, or other observations..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white resize-none"
+                    rows="3"
+                    placeholder="Describe any current symptoms or general observations..."
+                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3.5 text-sm font-bold text-slate-800 focus:ring-1 focus:ring-emerald-500 outline-none transition-all resize-none"
                   />
-                </div>
+               </div>
 
-                {/* Action Buttons */}
-                <div className="flex space-x-4 pt-4">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 px-2 sm:px-6 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-2 sm:gap-3"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Saving Vitals...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-5 h-5" />
-                        Save Vital Signs
-                      </>
-                    )}
+               {error && (
+                 <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-center gap-3">
+                   <X className="text-red-500" size={18} />
+                   <p className="text-red-700 text-[10px] font-black uppercase tracking-widest">{error}</p>
+                 </div>
+               )}
+
+               <div className="flex gap-4">
+                  <button type="submit" disabled={loading} className="flex-1 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-md transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50">
+                    {loading ? 'Processing...' : (isEdit ? 'Update Record' : 'Save Record')}
                   </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => navigate('/dashboard')}
-                    className="px-8 py-4 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all duration-300"
-                  >
-                    Cancel
+                  <button type="button" onClick={() => navigate('/vitals')} className="px-8 py-4 bg-slate-100 text-slate-600 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95">
+                     Cancel
                   </button>
-                </div>
-              </form>
-            </div>
-          </div>
+               </div>
+            </form>
+         </div>
 
-          {/* Info Sidebar */}
-          <div className="space-y-6">
-            {/* Health Tips */}
-            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-xl p-6 text-white">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-3">
-                <Stethoscope className="w-6 h-6 text-green-200" />
-                Measurement Tips
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Activity className="w-5 h-5 text-green-200 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold">Blood Pressure</p>
-                    <p className="text-green-100 text-sm">Measure in the morning before eating</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Droplets className="w-5 h-5 text-green-200 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold">Blood Sugar</p>
-                    <p className="text-green-100 text-sm">Check as per doctor's advice timing</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Scale className="w-5 h-5 text-green-200 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold">Weight</p>
-                    <p className="text-green-100 text-sm">Weigh at same time each day</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Heart className="w-5 h-5 text-green-200 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold">Heart Rate</p>
-                    <p className="text-green-100 text-sm">Measure after 5 minutes of rest</p>
-                  </div>
-                </div>
-              </div>
+         <div className="space-y-6">
+            <div className="bg-slate-800 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+               <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-6">Normal Health Ranges</h3>
+               <div className="space-y-3">
+                  {[
+                    { label: 'Blood Pressure', value: '120/80', unit: 'mmHg' },
+                    { label: 'Fasting Glucose', value: '70-100', unit: 'mg/dL' },
+                    { label: 'Body Temperature', value: '98.6', unit: '°F' },
+                    { label: 'Resting Pulse', value: '60-100', unit: 'BPM' }
+                  ].map((item, i) => (
+                    <div key={i} className="flex justify-between items-center p-3.5 bg-white/5 rounded-xl border border-white/5 group hover:bg-white/10 transition-all">
+                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
+                       <div className="text-right">
+                          <span className="text-xs font-black text-white">{item.value}</span>
+                          <span className="text-[8px] font-black text-emerald-500 uppercase ml-2 tracking-widest">{item.unit}</span>
+                       </div>
+                    </div>
+                  ))}
+               </div>
             </div>
 
-            {/* Normal Ranges */}
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-green-100">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-green-600" />
-                Normal Ranges
-              </h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between items-center p-3 bg-green-50 rounded-xl">
-                  <span className="font-medium text-gray-700">Blood Pressure</span>
-                  <span className="text-green-600 font-semibold">120/80 mmHg</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-xl">
-                  <span className="font-medium text-gray-700">Blood Sugar</span>
-                  <span className="text-blue-600 font-semibold">70-100 mg/dL</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-purple-50 rounded-xl">
-                  <span className="font-medium text-gray-700">Heart Rate</span>
-                  <span className="text-purple-600 font-semibold">60-100 bpm</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-orange-50 rounded-xl">
-                  <span className="font-medium text-gray-700">Temperature</span>
-                  <span className="text-orange-600 font-semibold">97-99°F</span>
-                </div>
-              </div>
+            <div className="standard-card p-6 border-emerald-100 bg-emerald-50/20">
+               <div className="flex items-center gap-3 mb-4">
+                  <Zap size={18} className="text-emerald-500" />
+                  <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">AI Analysis</h3>
+               </div>
+               <p className="text-[11px] font-medium text-slate-500 leading-relaxed italic">
+                 "Our AI engine analyzes these metrics against global standards to identify potential health patterns."
+               </p>
             </div>
-
-            {/* Importance Card */}
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl shadow-xl p-6 border border-blue-100">
-              <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <Heart className="w-5 h-5 text-blue-600" />
-                Why Track Vitals?
-              </h3>
-              <div className="space-y-2  text-sm text-gray-600">
-                <p className='flex'> <Dot/>Early detection of health issues</p>
-                <p className='flex'> <Dot/>Better communication with doctors</p>
-                <p className='flex'> <Dot/>Track treatment effectiveness</p>
-                <p className='flex'> <Dot/>Maintain health awareness</p>
-              </div>
-            </div>
-          </div>
-        </div>
+         </div>
       </div>
     </div>
   );

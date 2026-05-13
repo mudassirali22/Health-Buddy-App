@@ -1,9 +1,46 @@
 @import "tailwindcss";
 
+html {
+  font-size: 16px;
+}
+
+@utility standard-card {
+  @apply bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300;
+}
+
+@utility vip-header {
+  @apply text-2xl font-extrabold text-slate-800 tracking-tight;
+}
+
+@utility glass-effect {
+  @apply bg-white/70 backdrop-blur-lg border border-slate-200 shadow-md;
+}
+
+@utility perspective-1000 {
+  perspective: 1000px;
+}
+
+@utility preserve-3d {
+  transform-style: preserve-3d;
+}
+
+@utility backface-hidden {
+  backface-visibility: hidden;
+}
+
+@utility glass-card {
+  @apply bg-white/40 backdrop-blur-md border border-slate-200 shadow-lg;
+}
+
+@utility text-gradient {
+  @apply text-slate-800;
+}
+
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-20px); }
 }
+
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
@@ -16,10 +53,19 @@
   background: #f1f5f9;
   border-radius: 10px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #10b981;
   border-radius: 10px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #059669;
+}
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }

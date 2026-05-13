@@ -6,6 +6,11 @@ const reportSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  familyMember: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FamilyMember',
+    default: null
+  },
   title: {
     type: String,
     required: true,

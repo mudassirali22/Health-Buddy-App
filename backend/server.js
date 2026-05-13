@@ -5,16 +5,29 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import vitalRoutes from './routes/vitalRoutes.js';
-import  geminiRoutes from './routes/gemini.js';
+import geminiRoutes from './routes/gemini.js';
+import familyRoutes from './routes/familyRoutes.js';
+import reminderRoutes from './routes/reminderRoutes.js';
 
 dotenv.config();
 
 const app = express();
 
 // Middleware
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173'
+];
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
@@ -34,7 +47,9 @@ mongoose
 app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/vitals', vitalRoutes);
+app.use('/api/reminders', reminderRoutes);
 app.use('/api/gemini', geminiRoutes);
+app.use('/api/family', familyRoutes);
 
 app.get('/', (req, res) => {
   res.json({

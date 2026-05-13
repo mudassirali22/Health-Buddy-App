@@ -3,44 +3,109 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const router = express.Router();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY?.trim());
 
-const MODEL_FALLBACKS = ["gemini-2.5-flash", "gemini-1.0-pro"];
+const MODEL_FALLBACKS = [
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-2.5-pro",
+];
 
-// Get available model
-const getAvailableModel = async () => {
-  for (const modelName of MODEL_FALLBACKS) {
+let cachedModel = null;
+let lastCheckTime = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Helper for retrying AI calls on 503/429 errors
+const callAIWithRetry = async (fn, maxRetries = 5) => {
+  for (let i = 0; i < maxRetries; i++) {
     try {
-      const model = genAI.getGenerativeModel({ model: modelName });
-      await model.generateContent("ping");
-      return modelName;
-    } catch (error) {
-      console.warn(` ${modelName} not available:`, error.message);
+      return await fn();
+    } catch (err) {
+      const isRetryable = err.message.includes("503") || err.message.includes("429") || err.message.includes("high demand");
+      if (isRetryable && i < maxRetries - 1) {
+        // More patient delay for free tier quota: 2s, 4s, 8s, 16s
+        const delay = Math.pow(2, i + 1) * 1000;
+        console.warn(`AI busy or quota hit. Retrying in ${delay}ms... (Attempt ${i + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw err;
     }
   }
-  throw new Error("No working Gemini model found");
+};
+
+const getAvailableModel = async () => {
+  const now = Date.now();
+  if (cachedModel && (now - lastCheckTime < CACHE_DURATION)) {
+    console.log(`Using cached model: ${cachedModel}`);
+    return cachedModel;
+  }
+
+  console.log("--- Refreshing Gemini Availability ---");
+  console.log("Key Prefix:", process.env.GEMINI_API_KEY?.trim().substring(0, 8));
+  
+  for (const modelName of MODEL_FALLBACKS) {
+    try {
+      console.log(`Trying model: ${modelName}...`);
+      const model = genAI.getGenerativeModel({ model: modelName });
+      
+      const result = await Promise.race([
+        model.generateContent({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }] }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout (4s)")), 4000))
+      ]);
+      
+      if (result) {
+        console.log(`SUCCESS: Model ${modelName} is available.`);
+        cachedModel = modelName;
+        lastCheckTime = Date.now();
+        return modelName;
+      }
+    } catch (err) {
+      console.warn(`FAILURE: Model ${modelName} failed. Reason: ${err.message}`);
+    }
+  }
+  
+  console.error("CRITICAL: All Gemini models failed check. Using fallback.");
+  return cachedModel || "gemini-2.0-flash";
 };
 
 // vital signs analysis
 export const analyzeVitalSigns = async (vitalData, previousData = null) => {
   try {
     if (!process.env.GEMINI_API_KEY) {
-      throw new Error(" API key not configured");
+      throw new Error("API key not configured");
     }
 
     const modelName = await getAvailableModel();
     const model = genAI.getGenerativeModel({ model: modelName });
     const prompt = createVitalAnalysisPrompt(vitalData, previousData);
-    
-    const result = await model.generateContent(prompt);
+
+    const result = await callAIWithRetry(() => model.generateContent(prompt));
     const response = await result.response;
     const text = response.text();
 
     return parseAIResponse(text);
-    
+
   } catch (error) {
     console.error("Gemini AI analysis failed:", error);
-    throw new Error(`AI analysis failed: ${error.message}`);
+    
+    // Sanitize sensitive system/SSL errors
+    let userMessage = "AI Service is temporarily unavailable. Please try again in a moment.";
+    
+    if (error.message.includes("SSL") || error.message.includes("alert number 80")) {
+      userMessage = "Secure connection to health engine failed. Please check your network.";
+    } else if (error.message.includes("429") || error.message.includes("quota")) {
+      userMessage = "Health Engine is currently at capacity. Please try again shortly.";
+    } else if (error.message.includes("503") || error.message.includes("busy")) {
+      userMessage = "AI Diagnostic Engine is currently busy. Retrying...";
+    } else if (error.message.includes("API key")) {
+      userMessage = "AI Service Configuration Error. Please contact support.";
+    }
+
+    throw new Error(userMessage);
   }
 };
 
@@ -173,7 +238,7 @@ const formatVitalsForAI = (vitalData) => {
     vitals.push(`Temperature: ${vitalData.temperature}°F`);
   }
   if (vitalData.weight) {
-    const bmi = (vitalData.weight / (1.7 * 1.7)).toFixed(1); 
+    const bmi = (vitalData.weight / (1.7 * 1.7)).toFixed(1);
     vitals.push(`Weight: ${vitalData.weight} kg (Estimated BMI: ${bmi})`);
   }
   if (vitalData.notes) {
@@ -196,18 +261,18 @@ const parseAIResponse = (text) => {
   try {
     const cleanText = text
       .replace(/```json\s*|\s*```/g, '')
-      .replace(/^[^{]*/, '') 
-      .replace(/[^}]*$/, '') 
+      .replace(/^[^{]*/, '')
+      .replace(/[^}]*$/, '')
       .trim();
 
     const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-    
+
     if (!jsonMatch) {
       throw new Error("No valid JSON structure found in AI response");
     }
-    
+
     const data = JSON.parse(jsonMatch[0]);
-    
+
     // Validate response structure
     if (!data.overallAssessment || typeof data.overallAssessment.score !== 'number') {
       throw new Error("Invalid AI response structure");
@@ -244,7 +309,7 @@ const parseAIResponse = (text) => {
     };
 
     return data;
-    
+
   } catch (error) {
     console.error("Error parsing AI response:", error);
     throw new Error(`Failed to parse AI response: ${error.message}`);
@@ -256,7 +321,7 @@ const getFallbackAnalysis = (vitalData) => {
   console.warn("Using fallback/Manual Analysis analysis");
 
   const manualAnalysis = generateManualAnalysis(vitalData);
-  
+
   return {
     overallAssessment: {
       score: manualAnalysis.score,
@@ -347,7 +412,7 @@ const generateManualAnalysis = (vitalData) => {
   // Blood Pressure Analysis
   if (vitalData.bloodPressure) {
     const { systolic, diastolic } = vitalData.bloodPressure;
-    
+
     if (systolic < 90 || diastolic < 60) {
       metrics.bloodPressure = {
         assessment: `Hypotension detected (${systolic}/${diastolic} mmHg). May indicate underlying conditions.`,
@@ -426,15 +491,121 @@ const generateManualAnalysis = (vitalData) => {
   };
 };
 
+// Symptom Checker / Health Assistant
+export const analyzeSymptoms = async (query, history = []) => {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("API key not configured");
+    }
+
+    const modelName = await getAvailableModel();
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    // Filter history to ensure it starts with 'user', alternates roles, and ends with 'model'
+    const validHistory = [];
+    let nextRole = 'user';
+
+    for (const msg of history) {
+      const role = msg.role === 'user' ? 'user' : 'model';
+      if (role === nextRole) {
+        validHistory.push({
+          role: role,
+          parts: [{ text: msg.content }],
+        });
+        nextRole = role === 'user' ? 'model' : 'user';
+      }
+    }
+
+    // If history ends with 'user', pop it because the current query will be sent as the next 'user' message
+    if (validHistory.length > 0 && validHistory[validHistory.length - 1].role === 'user') {
+      validHistory.pop();
+    }
+
+    const chat = model.startChat({
+      history: validHistory,
+      generationConfig: {
+        maxOutputTokens: 2048,
+        temperature: 0.7,
+      },
+    });
+
+    const prompt = `
+You are **HealthBuddy AI**, an advanced, empathetic medical health assistant with expertise in general medicine, nutrition, fitness, mental health, and preventive care.
+
+**YOUR PERSONALITY:**
+- Warm, professional, and supportive
+- Use clear, patient-friendly language (avoid heavy medical jargon unless explaining)
+- Be thorough but concise — use bullet points and structured formatting
+- Use bold (**text**) for important terms and numbered lists for steps
+
+**RESPONSE STRUCTURE (follow this for symptom queries):**
+1. **Understanding** — Acknowledge the user's concern empathetically
+2. **Possible Causes** — List 2-4 potential causes with brief explanations
+3. **What You Can Do** — Provide 3-5 actionable home remedies or lifestyle tips
+4. **When to See a Doctor** — Clear red flags that need professional attention
+5. **Prevention Tips** — 2-3 tips to prevent recurrence
+
+**CRITICAL RULES:**
+- NEVER diagnose. Say "this could indicate" instead of "you have"
+- For ANY emergency symptoms (chest pain, breathing difficulty, stroke signs, severe bleeding, suicidal thoughts), IMMEDIATELY advise calling emergency services (911/1122/local emergency)
+- Always end with: "⚠️ This is general health information. Please consult a healthcare professional for personalized medical advice."
+- If the query is about diet, exercise, sleep, or wellness — provide detailed, actionable plans
+- If patient profile info is provided, tailor your response to their age, gender, and health context
+- Be culturally sensitive and inclusive
+- Reference current medical guidelines where appropriate
+
+USER QUERY: ${query}
+    `;
+
+    const result = await callAIWithRetry(() => chat.sendMessage(prompt));
+    const response = await result.response;
+    return response.text();
+
+  } catch (error) {
+    console.error("Gemini AI chat failed:", error);
+    throw new Error(`AI response failed: ${error.message}`);
+  }
+};
+
 // API Routes
+router.post('/chat-ai', async (req, res) => {
+  try {
+    const { query, history } = req.body;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        error: 'Query is required'
+      });
+    }
+
+    const response = await analyzeSymptoms(query, history || []);
+
+    res.json({
+      success: true,
+      response,
+      modelUsed: "Gemini AI",
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('AI chat error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 router.post('/analyze-vitals', async (req, res) => {
+  // ... existing code ...
   try {
     const { vitalData, previousData } = req.body;
 
     if (!vitalData) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: 'Vital data is required' 
+        error: 'Vital data is required'
       });
     }
 
@@ -451,7 +622,7 @@ router.post('/analyze-vitals', async (req, res) => {
     }
 
     const analysis = await analyzeVitalSigns(vitalData, previousData);
-    
+
     res.json({
       success: true,
       analysis,
@@ -461,9 +632,9 @@ router.post('/analyze-vitals', async (req, res) => {
 
   } catch (error) {
     console.error('AI analysis error:', error);
-    
+
     const fallbackAnalysis = getFallbackAnalysis(req.body.vitalData);
-    
+
     res.status(500).json({
       success: false,
       error: error.message,

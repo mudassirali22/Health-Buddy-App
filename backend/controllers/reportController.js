@@ -4,7 +4,7 @@ import { analyzeReport } from '../utils/geminiHelper.js';
 import moment from 'moment';
 export const uploadReport = async (req, res) => {
   try {
-    const { title, reportType, date } = req.body;
+    const { title, reportType, date, familyMember } = req.body;
 
     if (!req.file) {
       return res.status(400).json({
@@ -39,7 +39,8 @@ export const uploadReport = async (req, res) => {
       date,
       fileUrl: uploadResult.secure_url,
       cloudinaryPublicId: uploadResult.public_id,
-      aiSummary
+      aiSummary,
+      familyMember: familyMember === 'null' || !familyMember ? null : familyMember
     });
 
     res.status(201).json({
@@ -60,7 +61,18 @@ export const uploadReport = async (req, res) => {
 // Get all reports
 export const getReports = async (req, res) => {
   try {
-    const reports = await Report.find({ user: req.user._id })
+    const { familyMember } = req.query;
+    const query = { user: req.user._id };
+
+    if (familyMember === 'null' || !familyMember) {
+      query.familyMember = null;
+    } else if (familyMember === 'all') {
+      // Return all reports (user + family)
+    } else {
+      query.familyMember = familyMember;
+    }
+
+    const reports = await Report.find(query)
       .sort({ date: -1 });
 
     res.json({

@@ -2,7 +2,7 @@ import Vital from '../models/Vital.js';
 
 export const addVital = async (req, res) => {
   try {
-    const { date, bloodPressure, bloodSugar, weight, temperature, heartRate, notes } = req.body;
+    const { date, bloodPressure, bloodSugar, weight, temperature, heartRate, notes, familyMember } = req.body;
     // Create vitals in database
     const vital = await Vital.create({
       user: req.user._id,
@@ -12,7 +12,8 @@ export const addVital = async (req, res) => {
       weight,
       temperature,
       heartRate,
-      notes
+      notes,
+      familyMember: familyMember === 'null' || !familyMember ? null : familyMember
     });
 
     res.status(201).json({
@@ -33,7 +34,18 @@ export const addVital = async (req, res) => {
 // Get all vitals for logged-in user
 export const getVitals = async (req, res) => {
   try {
-    const vitals = await Vital.find({ user: req.user._id })
+    const { familyMember } = req.query;
+    const query = { user: req.user._id };
+    
+    if (familyMember === 'null' || !familyMember) {
+      query.familyMember = null;
+    } else if (familyMember === 'all') {
+      // Return all vitals (user + family)
+    } else {
+      query.familyMember = familyMember;
+    }
+
+    const vitals = await Vital.find(query)
       .sort({ date: -1 });
 
     res.json({

@@ -67,7 +67,7 @@ const ResetPassword = () => {
       if (response.data.success) {
         setMessage('Password reset successfully! Redirecting to login...');
         setTimeout(() => {
-          navigate('/login');
+          navigate('/auth');
         }, 2000);
       } else {
         setError(response.data.message);
@@ -81,7 +81,7 @@ const ResetPassword = () => {
 
   if (validating) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-emerald-600 from-emerald-50 via-green-50 to-teal-50 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Validating your reset link...</p>
@@ -92,9 +92,9 @@ const ResetPassword = () => {
 
   if (!isValidToken) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-emerald-600 from-emerald-50 via-green-50 to-teal-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 border border-green-100 text-center">
+          <div className="bg-white rounded-3xl shadow-lg p-8 border border-green-100 text-center">
             <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-4">
               <XCircle className="w-8 h-8 text-red-600" />
             </div>
@@ -110,18 +110,18 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-emerald-600 from-emerald-50 via-green-50 to-teal-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="mb-6">
-          <NavLink to="/login" className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 font-semibold transition-colors group">
+          <NavLink to="/auth" state={{ isLogin: true }} className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 font-semibold transition-colors group">
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             Back to Login
           </NavLink>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-2xl p-8 border border-green-100">
+        <div className="bg-white rounded-3xl shadow-lg p-8 border border-green-100">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-4">
+            <div className="w-16 h-16 bg-emerald-600 from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-4">
               <Lock className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-3xl font-bold text-gray-900">New Password</h2>
@@ -130,14 +130,14 @@ const ResetPassword = () => {
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             {message && (
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 px-6 py-4 rounded-2xl flex items-center gap-3">
+              <div className="bg-emerald-600 from-green-50 to-emerald-50 border border-green-200 text-green-700 px-6 py-4 rounded-2xl flex items-center gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
                 <span className="text-sm font-medium">{message}</span>
               </div>
             )}
 
             {error && (
-              <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl flex items-center gap-3">
+              <div className="bg-emerald-600 from-red-50 to-pink-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl flex items-center gap-3">
                 <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
                 <span className="text-sm font-medium">{error}</span>
               </div>
@@ -202,7 +202,7 @@ const ResetPassword = () => {
             <button
               type="submit"
               disabled={loading || !formData.password || !formData.confirmPassword}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 px-6 rounded-2xl font-semibold hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-3"
+              className="w-full bg-emerald-600 from-green-500 to-emerald-600 text-white py-4 px-6 rounded-2xl font-semibold hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-md transform hover:-translate-y-0.5 flex items-center justify-center gap-3"
             >
               {loading ? (
                 <>

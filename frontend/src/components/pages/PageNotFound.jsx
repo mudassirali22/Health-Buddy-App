@@ -7,50 +7,43 @@ const PageNotFound = () => {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center px-4 py-8">
-      <div className="max-w-md w-full">
-        {/* Main Card */}
-        <div className="bg-white rounded-2xl shadow-lg border border-green-100 overflow-hidden transform hover:shadow-xl transition-all duration-300">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8 relative overflow-hidden">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-50 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl opacity-50"></div>
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-slate-50 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl opacity-50"></div>
+
+      <div className="max-w-md w-full relative z-10">
+        <div className="bg-white rounded-[2.5rem] shadow-lg  border border-slate-100 overflow-hidden text-center p-12">
           
-          {/* Decorative Header */}
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 w-full"></div>
-          
-          <div className="p-8">
-            <div className="relative mb-6">
-              <div className="text-7xl font-bold pl-20 sm:pl-30 text-green-600 mb-2  relative">
-                404
-              </div>
-              <div className="w-24 h-1 bg-gradient-to-r from-green-300 to-emerald-300 mx-auto rounded-full"></div>
+          <div className="relative mb-8">
+            <div className="text-[120px] font-black text-slate-200 leading-none select-none italic tracking-tighter">
+              404
             </div>
+          </div>
 
-            {/* Message Section */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-3">
-                Page Not Found
-              </h2>
-              <p className="text-gray-600 leading-relaxed">
-                  The page you're looking for doesn't exist or has been moved.
-              </p>
-            </div>
+          <div className="mb-10">
+            <h2 className="text-2xl font-black text-slate-800 mb-3 uppercase tracking-tight">Page Not Found</h2>
+            <p className="text-slate-500 text-xs font-bold leading-relaxed uppercase tracking-tight opacity-70">
+              The page you're looking for doesn't exist or has been moved.
+            </p>
+          </div>
 
-            {/* Action Buttons */}
-            <div className="space-y-4">
-              <NavLink
-                to={user ? "/dashboard" : "/"}
-                className="flex items-center justify-center bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-4 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-md hover:shadow-lg font-semibold group"
-              >
-                <Home className="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />
-                {user ? "Back to Dashboard" : "Go to Homepage"}
-              </NavLink>
+          <div className="space-y-4">
+            <NavLink
+              to={user ? "/dashboard" : "/"}
+              className="flex items-center justify-center bg-slate-800 text-white px-8 py-4 rounded-2xl hover:bg-emerald-600 transition-all shadow-md  font-black text-[10px] uppercase tracking-widest group"
+            >
+              <Home className="w-4 h-4 mr-3 group-hover:scale-110 transition-transform text-emerald-400" />
+              {user ? "Back to Dashboard" : "Go to Homepage"}
+            </NavLink>
 
-              <button
-                onClick={() => navigate(-1)}
-                className="flex items-center justify-center w-full text-green-600 hover:text-emerald-700 px-6 py-3 rounded-lg border-2 border-green-200 hover:border-green-300 transition-all duration-300 font-medium group"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                Return to Previous Page
-              </button>
-            </div>
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center justify-center w-full text-slate-400 hover:text-slate-800 px-8 py-4 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-all font-black text-[10px] uppercase tracking-widest group"
+            >
+              <ArrowLeft className="w-4 h-4 mr-3 group-hover:-translate-x-1 transition-transform" />
+              Return to Previous Page
+            </button>
           </div>
         </div>
       </div>

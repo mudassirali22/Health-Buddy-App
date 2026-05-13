@@ -1,538 +1,417 @@
 import { useState, useEffect, useMemo } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { 
-  FaFileMedical, 
-  FaFilter, 
-  FaCalendarAlt, 
-  FaStethoscope, 
-  FaArrowRight,
-  FaSearch,
-  FaSort,
-  FaTrash,
-  FaCloudUploadAlt,
-  FaSync,
-  FaExclamationTriangle,
-  FaTimes,
-} from 'react-icons/fa';
+import { useFamily } from '../../context/FamilyContext';
+import {
+  Search,
+  Filter,
+  FileText,
+  Calendar,
+  ArrowRight,
+  ListFilter,
+  RotateCw,
+  CloudUpload,
+  AlertCircle,
+  ChevronDown,
+  TrendingUp,
+  Activity,
+  ShieldCheck,
+  Edit2,
+  Trash2,
+  Pencil
+} from 'lucide-react';
+import ConfirmModal from '../common/ConfirmModal';
 
 const ReportList = () => {
+  const { selectedFamilyMember } = useFamily();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('date');
-  const [sortOrder, setSortOrder] = useState('desc');
-  const [selectedReports, setSelectedReports] = useState(new Set());
-  const [bulkActions, setBulkActions] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [dateRange, setDateRange] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    reportId: null,
+    reportTitle: ''
+  });
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchReports();
-  }, []);
+    fetchReports(true);
+    const interval = setInterval(() => fetchReports(false), 10000);
+    return () => clearInterval(interval);
+  }, [selectedFamilyMember]);
 
-  const fetchReports = async () => {
+  const fetchReports = async (isInitial = false) => {
     try {
-      setLoading(true);
-      const response = await api.get('/reports');
+      if (isInitial) setLoading(true);
+      const params = selectedFamilyMember ? { familyMember: selectedFamilyMember._id } : { familyMember: 'null' };
+      const response = await api.get('/reports', { params });
       setReports(response.data.data || []);
     } catch (error) {
       console.error('Error fetching reports:', error);
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
+
+  const filteredReports = useMemo(() => {
+    let result = reports.filter(report => {
+      // Category Filter
+      const matchesType = filter === 'all' || report.reportType === filter;
+      
+      // Search Logic
+      const summaryText = typeof report.aiSummary === 'string' ? report.aiSummary : report.aiSummary?.english || '';
+      const matchesSearch = report.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        report.reportType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        summaryText.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Date Range Filter
+      let matchesDate = true;
+      const reportDate = new Date(report.date);
+      const now = new Date();
+      if (dateRange === 'week') {
+        const weekAgo = new Date();
+        weekAgo.setDate(now.getDate() - 7);
+        matchesDate = reportDate >= weekAgo;
+      } else if (dateRange === 'month') {
+        const monthAgo = new Date();
+        monthAgo.setMonth(now.getMonth() - 1);
+        matchesDate = reportDate >= monthAgo;
+      } else if (dateRange === 'year') {
+        const yearAgo = new Date();
+        yearAgo.setFullYear(now.getFullYear() - 1);
+        matchesDate = reportDate >= yearAgo;
+      }
+
+      // Priority/Status Filter
+      let matchesPriority = true;
+      if (priorityFilter !== 'all') {
+        const status = report.aiAnalysis?.overallAssessment?.status?.toLowerCase() || '';
+        const risk = report.aiAnalysis?.overallAssessment?.riskLevel?.toLowerCase() || '';
+        
+        if (priorityFilter === 'critical') {
+          matchesPriority = status === 'critical' || risk === 'very high' || risk === 'high';
+        } else if (priorityFilter === 'abnormal') {
+          matchesPriority = status === 'needs attention' || status === 'fair' || risk === 'moderate';
+        } else if (priorityFilter === 'stable') {
+          matchesPriority = status === 'excellent' || status === 'good' || risk === 'low' || risk === 'very low';
+        }
+      }
+
+      return matchesType && matchesSearch && matchesDate && matchesPriority;
+    });
+
+    if (sortBy === 'date') {
+      result.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } else if (sortBy === 'title') {
+      result.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    }
+
+    return result;
+  }, [reports, filter, searchTerm, sortBy, dateRange, priorityFilter]);
+
+  const stats = useMemo(() => {
+     const total = reports.length;
+     const now = new Date();
+     const sevenDaysAgo = new Date();
+     sevenDaysAgo.setDate(now.getDate() - 7);
+     
+     const recent = reports.filter(r => new Date(r.date) >= sevenDaysAgo).length;
+     
+     const critical = reports.filter(r => {
+       const status = r.aiAnalysis?.overallAssessment?.status?.toLowerCase() || '';
+       const risk = r.aiAnalysis?.overallAssessment?.riskLevel?.toLowerCase() || '';
+       return status === 'critical' || risk === 'very high' || risk === 'high';
+     }).length;
+
+     const stable = reports.filter(r => {
+       const status = r.aiAnalysis?.overallAssessment?.status?.toLowerCase() || '';
+       const risk = r.aiAnalysis?.overallAssessment?.riskLevel?.toLowerCase() || '';
+       return status === 'good' || status === 'excellent' || risk === 'low' || risk === 'very low';
+     }).length;
+     
+     return { total, recent, critical, stable };
+  }, [reports]);
+
+  const reportTypes = useMemo(() => {
+    const counts = reports.reduce((acc, report) => {
+      acc[report.reportType] = (acc[report.reportType] || 0) + 1;
+      return acc;
+    }, {});
+    return counts;
+  }, [reports]);
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+      month: 'short', day: 'numeric', year: 'numeric'
     });
   };
 
-const getTimeAgo = (dateString) => {
-  if (!dateString) return "";
-
-  const now = new Date();
-  const todayStart = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  ));
-
-  const d = new Date(dateString);
-  const reportDate = new Date(Date.UTC(
-    d.getUTCFullYear(),
-    d.getUTCMonth(),
-    d.getUTCDate()
-  ));
-
-  const diffMs = todayStart - reportDate;
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-  return `${Math.floor(diffDays / 30)} months ago`;
-}
-
-  const filteredAndSortedReports = useMemo(() => {
-    let filtered = reports.filter(report => {
-      const matchesFilter = filter === 'all' || report.reportType === filter;
-      const matchesSearch = report.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          report.reportType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          report.aiSummary?.english?.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesFilter && matchesSearch;
+  const openDeleteModal = (id, title) => {
+    setDeleteModal({
+      isOpen: true,
+      reportId: id,
+      reportTitle: title
     });
-
-    filtered.sort((a, b) => {
-      let aValue, bValue;
-      
-      switch (sortBy) {
-        case 'title':
-          aValue = a.title?.toLowerCase();
-          bValue = b.title?.toLowerCase();
-          break;
-        case 'type':
-          aValue = a.reportType?.toLowerCase();
-          bValue = b.reportType?.toLowerCase();
-          break;
-        case 'date':
-        default:
-          aValue = new Date(a.date);
-          bValue = new Date(b.date);
-      }
-
-      if (sortOrder === 'desc') {
-        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
-      } else {
-        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
-      }
-    });
-
-    return filtered;
-  }, [reports, filter, searchTerm, sortBy, sortOrder]);
-
-  const reportTypes = useMemo(() => {
-    const types = [...new Set(reports.map(r => r.reportType))];
-    return types.map(type => ({
-      name: type,
-      count: reports.filter(r => r.reportType === type).length,
-      icon: <FaStethoscope />
-    }));
-  }, [reports]);
-
-  const toggleReportSelection = (reportId) => {
-    const newSelected = new Set(selectedReports);
-    if (newSelected.has(reportId)) {
-      newSelected.delete(reportId);
-    } else {
-      newSelected.add(reportId);
-    }
-    setSelectedReports(newSelected);
-    setBulkActions(newSelected.size > 0);
-  };
-
-  const selectAllReports = () => {
-    if (selectedReports.size === filteredAndSortedReports.length) {
-      setSelectedReports(new Set());
-      setBulkActions(false);
-    } else {
-      setSelectedReports(new Set(filteredAndSortedReports.map(r => r._id)));
-      setBulkActions(true);
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    try {
-      await Promise.all(
-        Array.from(selectedReports).map(id => 
-          api.delete(`/reports/${id}`)
-        )
-      );
-      setSelectedReports(new Set());
-      setBulkActions(false);
-      setShowDeleteModal(false);
-      fetchReports();
-    } catch (error) {
-      console.error('Error deleting reports:', error);
-    }
-  };
-
-  const openDeleteModal = () => {
-    setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
-    setShowDeleteModal(false);
+    setDeleteModal({
+      isOpen: false,
+      reportId: null,
+      reportTitle: ''
+    });
   };
 
-  //  Confirm Modal Component
-  const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
-    if (!isOpen) return null;
-
-    return (
-      <div className="fixed inset-0 bg-white/20 backdrop-blur-sm  flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full transform transition-all duration-300 scale-100">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                <FaExclamationTriangle className="text-red-600 text-lg" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900">{title}</h3>
-            </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors duration-200"
-            >
-              <FaTimes className="text-gray-600 text-sm" />
-            </button>
-          </div>
-
-          <div className="p-6">
-            <p className="text-gray-700 text-lg leading-relaxed">{message}</p>
-          </div>
-
-          {/* Footer */}
-          <div className="flex gap-3 p-6 border-t border-gray-200">
-            <button
-              onClick={onClose}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onConfirm}
-              className="flex-1 bg-gradient-to-r from-red-500 to-amber-600 hover:from-red-600 hover:to-amber-700 text-white px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 hover:scale-105"
-            >
-              <FaTrash className="text-sm" />
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/reports/${deleteModal.reportId}`);
+      setReports(prev => prev.filter(r => r._id !== deleteModal.reportId));
+      closeDeleteModal();
+    } catch (error) {
+      console.error('Error deleting report:', error);
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center overflow-hidden">
-        <div className="text-center relative z-10">
-          <div className="relative mb-8">
-            <div className="w-20 h-20 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <div className="w-16 h-16 border-4 border-green-400 border-b-transparent rounded-full animate-spin animate-reverse absolute top-2 left-1/2 -translate-x-1/2"></div>
-            <FaFileMedical className="absolute inset-0 m-auto text-emerald-600 text-2xl animate-pulse" />
-          </div>
-          <div className="space-y-3">
-            <p className="text-xl text-gray-700 font-medium">
-              Loading your medical reports...
-            </p>
-          </div>
-          <div className="mt-6 flex justify-center space-x-2">
-              {[0, 1, 2].map((i) => (
-                <div
-                key={i}
-                className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"
-                style={{ animationDelay: `${i * 0.2}s` }}
-                />
-              ))}
-          </div>
-        </div>
+      <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-emerald-500/10 border-t-emerald-600 rounded-full animate-spin"></div>
+        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] animate-pulse">Accessing Medical Records...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 py-8 px-4 sm:px-6 lg:px-8">
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={showDeleteModal}
-        onClose={closeDeleteModal}
-        onConfirm={handleBulkDelete}
-        title="Delete Reports"
-        message={`Are you sure you want to delete ${selectedReports.size} report${selectedReports.size > 1 ? 's' : ''}? This action cannot be undone.`}
-      />
-
-      <div className="max-w-8xl mx-auto">
-        {/* Header Section */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
-          <div className="flex items-center gap-4 mb-6 lg:mb-0">
-            <div className="relative">
-              <div className=" w-14 sm:w-14 h-13 sm:h-15 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-green-500/25">
-                <FaFileMedical className="text-2xl text-white" />
-              </div>
-              <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full border-4 border-white flex items-center justify-center">
-                <span className="text-xs text-white font-bold">{reports.length}</span>
-              </div>
-            </div>
-            <div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                Medical Reports
-              </h1>
-              <p className="text-gray-600 mt-2 text-sm sm:text-lg">All your medical reports in one secure place</p>
-            </div>
+    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-6">
+      
+      {/* Top Header Banner */}
+      <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 overflow-hidden relative">
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg ">
+            <FileText size={28} />
           </div>
-          
-          <div className="flex flex-col sm:flex-row gap-4">
-            <button
-              onClick={fetchReports}
-              className="bg-white text-green-600 border border-green-300 px-6 py-4 rounded-2xl font-semibold flex items-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
-            >
-              <FaSync className="text-md sm:text-lg" />
-              Refresh
-            </button>
-            
-            <NavLink to="/upload-report">
-              <div className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-4 rounded-2xl font-semibold flex items-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                <FaCloudUploadAlt className="text-md sm:text-lg" />
-                Upload Report
-              </div>
-            </NavLink>
-          </div>
-        </div>
-
-        {/* Search and Filter Section */}
-        <div className="bg-white rounded-2xl shadow-2xl p-6 mb-8 border border-green-100">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            {/* Search Bar */}
-            <div className="flex-1 relative">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <FaSearch className="text-green-500" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search reports by title, type, or content..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-green-50 border border-green-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300"
-              />
-            </div>
-
-            {/* Sort Controls */}
-            <div className="flex items-center gap-4">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="bg-green-50 border border-green-200 rounded-2xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="date">Sort by Date</option>
-                <option value="title">Sort by Title</option>
-                <option value="type">Sort by Type</option>
-              </select>
-              
-              <button
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="bg-green-500 text-white p-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-              >
-                <FaSort className="text-md sm:text-lg" />
-              </button>
-            </div>
-          </div>
-
-          {/* Filter Chips */}
-          <div className="mt-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                <FaFilter className="text-green-600 text-md sm:text-lg" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-800">Filter Reports</h2>
-            </div>
-            
-            <div className="grid grid-cols-2 text-sm sm:text-md sm:flex sm:flex-wrap gap-3">
-              <button
-                onClick={() => setFilter('all')}
-                className={`sm:px-6 sm:py-2 p-2 rounded-xl font-semibold transition-all duration-300 flex flex-col sm:flex-row items-center gap-2 ${
-                  filter === 'all'
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
-                }`}
-              >
-                <FaFileMedical />
-                All Reports ({reports.length})
-              </button>
-              
-              {reportTypes.map((type) => (
-                <button
-                  key={type.name}
-                  onClick={() => setFilter(type.name)}
-                  className={`px-3 sm:px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex flex-col sm:flex-row items-center gap-2 ${
-                    filter === type.name
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
-                  }`}
-                >
-                  {type.icon}
-                  {type.name} ({type.count})
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Bulk Actions Bar */}
-        {bulkActions && (
-          <div className="bg-gradient-to-r from-red-500 to-amber-700 rounded-2xl shadow-xl p-6 mb-6 text-white transition-all duration-300">
-            <div className="flex items-center flex-col sm:flex-row justify-between">
-              <div className="flex items-center py-2 gap-2">
-                <FaExclamationTriangle className="text-sm sm:text-2xl" />
-                <div>
-                  <h3 className="font-bold text-md sm:text-lg">{selectedReports.size} reports selected</h3>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={selectAllReports}
-                  className="bg-white/20 hover:bg-white/30 px-4 sm:px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all duration-300 backdrop-blur-sm hover:scale-105"
-                >
-                  Select all
-                </button>
-                <button
-                  onClick={openDeleteModal}
-                  className="bg-white/20 hover:bg-white/30 px-4 sm:px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all duration-300 backdrop-blur-sm hover:scale-105"
-                >
-                  <FaTrash />
-                  Delete
-                </button>
-                <button
-                  onClick={() => { setSelectedReports(new Set()); setBulkActions(false); }}
-                  className="bg-white/20 hover:bg-white/30 px-4 sm:px-6 py-3 rounded-xl font-semibold transition-all duration-300 backdrop-blur-sm hover:scale-105"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Reports Grid */}
-        {filteredAndSortedReports.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-2xl p-12 text-center border border-green-100 transition-all duration-300">
-            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <FaFileMedical className="text-3xl sm:text-4xl text-green-600" />
-            </div>
-            <h3 className="text-lg sm:text-2xl font-bold text-gray-900 mb-3">
-              {searchTerm ? 'No matching reports found' : 'No Reports Found'}
-            </h3>
-            <p className="text-gray-600 text-md sm:text-lg mb-8 max-w-md mx-auto">
-              {searchTerm 
-                ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
-                : 'Start by uploading your first medical report to track your health journey securely.'
-              }
+          <div>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Medical Reports</h1>
+            <p className="text-slate-500 text-sm font-bold mt-1">
+              {selectedFamilyMember ? `Viewing reports for ${selectedFamilyMember.name}` : "Your complete history of medical tests and reports."}
             </p>
-            <div className="flex gap-4 justify-center">
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-2xl font-semibold transition-all duration-300 hover:scale-105"
-                >
-                  Clear Search
-                </button>
-              )}
-              <NavLink to="/upload-report">
-                <div className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 sm:px-8 sm:py-4 py-3 rounded-2xl font-semibold inline-flex items-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                  <FaCloudUploadAlt className="text-lg" />
-                  Upload Your First Report
-                </div>
-              </NavLink>
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap gap-3 relative z-10">
+
+          <button onClick={() => navigate('/upload-report')} className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-black transition-all shadow-lg  flex items-center gap-2 text-[10px] uppercase tracking-widest">
+            <CloudUpload size={14} /> Add New Report
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+         <div className="standard-card p-5 bg-emerald-600 text-white border-none shadow-md ">
+            <p className="text-[9px] font-black uppercase tracking-widest opacity-80 mb-2">Total Reports</p>
+            <div className="flex justify-between items-end">
+               <span className="text-3xl font-black leading-none">{stats.total}</span>
+               <FileText size={24} className="opacity-30" />
+            </div>
+         </div>
+          <div className="standard-card p-5 border-slate-100">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">New (Last 7 Days)</p>
+            <div className="flex justify-between items-end">
+               <span className="text-3xl font-black text-slate-800 leading-none">{stats.recent}</span>
+               <TrendingUp size={24} className="text-emerald-500 opacity-20" />
             </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredAndSortedReports.map((report, index) => (
+          <div className="standard-card p-5 bg-red-50 border-red-100">
+            <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-2">Critical Alerts</p>
+            <div className="flex justify-between items-end">
+               <span className="text-3xl font-black text-red-600 leading-none">{stats.critical}</span>
+               <AlertCircle size={24} className="text-red-500 opacity-20" />
+            </div>
+          </div>
+          <div className="standard-card p-5 border-slate-100">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Stable Results</p>
+            <div className="flex justify-between items-end">
+               <span className="text-3xl font-black text-slate-800 leading-none">{stats.stable}</span>
+               <ShieldCheck size={24} className="text-emerald-500 opacity-20" />
+            </div>
+          </div>
+      </div>
+
+      {/* Filter & Search Bar */}
+      <div className="space-y-4">
+        <div className="standard-card p-3 flex flex-col sm:flex-row gap-3 items-center">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={18} />
+            <input
+              type="text"
+              placeholder="Search reports by title or test name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-slate-50/50 border-none rounded-xl pl-12 pr-4 py-3 text-xs focus:ring-1 focus:ring-emerald-500 outline-none font-semibold uppercase tracking-tight"
+            />
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <select 
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-slate-50/50 border-none rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none flex-1 sm:w-40 cursor-pointer hover:bg-slate-100 transition-all"
+            >
+              <option value="date">Newest First</option>
+              <option value="title">A-Z Order</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Dropdown Filters */}
+        <div className="flex flex-wrap gap-3 px-1">
+           <div className="relative group">
+              <div className="relative">
+                 <select 
+                   value={dateRange}
+                   onChange={(e) => setDateRange(e.target.value)}
+                   className="appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer shadow-sm min-w-[150px]"
+                 >
+                    <option value="all">All Dates</option>
+                    <option value="week">Last 7 Days</option>
+                    <option value="month">Last 30 Days</option>
+                    <option value="year">Last Year</option>
+                 </select>
+                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+              </div>
+           </div>
+
+           <div className="relative group">
+              <div className="relative">
+                 <select 
+                   value={priorityFilter}
+                   onChange={(e) => setPriorityFilter(e.target.value)}
+                   className="appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer shadow-sm min-w-[150px]"
+                 >
+                    <option value="all">All Results</option>
+                    <option value="critical">Critical / Emergency</option>
+                    <option value="abnormal">Abnormal Findings</option>
+                    <option value="stable">Normal Results</option>
+                 </select>
+                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+              </div>
+           </div>
+
+           <div className="relative group">
+              <div className="relative">
+                 <select 
+                   value={filter}
+                   onChange={(e) => setFilter(e.target.value)}
+                   className="appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer shadow-sm min-w-[150px]"
+                 >
+                    <option value="all">All Types</option>
+                    {Object.keys(reportTypes).map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                 </select>
+                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+              </div>
+           </div>
+        </div>
+      </div>
+
+      <div className="pt-4">
+        <div className="w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredReports.map((report) => (
               <div
                 key={report._id}
-                className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-2xl transition-all duration-300 border border-green-100 hover:border-green-300 group cursor-pointer transform hover:-translate-y-1 relative"
-                style={{ animationDelay: `${index * 100}ms` }}
+                onClick={() => navigate(`/report/${report._id}`)}
+                className="standard-card p-6 cursor-pointer group flex flex-col h-full hover:border-emerald-500 bg-white"
               >
-                {/* Selection Checkbox */}
-                <div className="absolute top-4 left-4">
-                  <input
-                    type="checkbox"
-                    checked={selectedReports.has(report._id)}
-                    onChange={() => toggleReportSelection(report._id)}
-                    className="w-5 h-5 text-green-500 rounded border-gray-300 focus:ring-green-500"
-                  />
-                </div>
-
-                {/* Report Header */}
-                <div className="flex justify-end mb-4 pl-6">
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
-                      {report.reportType}
-                    </span>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-all border border-slate-50">
+                    <FileText size={24} />
                   </div>
+                  <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider">
+                    {report.reportType}
+                  </span>
                 </div>
 
-                {/* Report Content */}
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-900 mb-3 group-hover:text-green-600 transition-colors line-clamp-2">
-                    {report.title}
-                  </h3>
+                <h3 className="text-lg font-black text-slate-800 mb-2 group-hover:text-emerald-600 transition-colors line-clamp-1 leading-tight uppercase tracking-tight">
+                  {report.title || 'Medical Report'}
+                </h3>
+
+                <div className="flex items-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-4">
+                  <Calendar size={12} className="text-emerald-500" />
+                  <span>{formatDate(report.date)}</span>
+                </div>
+
+                <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-100 mb-6 flex-1">
+                  <p className="text-[11px] font-bold leading-relaxed text-slate-600 line-clamp-3 italic">
+                    {typeof report.aiSummary === 'string' ? report.aiSummary : (report.aiSummary?.english || 'Analyzing your report findings...')}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/edit-report/${report._id}`);
+                      }}
+                      className="p-2.5 bg-white text-slate-400 rounded-xl hover:bg-emerald-50 hover:text-emerald-600 transition-all border border-slate-100 hover:border-emerald-100"
+                      title="Edit Report"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDeleteModal(report._id, report.title);
+                      }}
+                      className="p-2.5 bg-white text-red-400 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all border border-slate-100 hover:border-red-100"
+                      title="Delete Report"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                   
-                  <div className="flex items-center justify-between text-gray-600 mb-3">
-                    <div className="flex items-center gap-2">
-                      <FaCalendarAlt className="text-green-500" />
-                      <span className="text-sm font-medium">{formatDate(report.date)}</span>
-                    </div>
-                    <span className="text-xs text-gray-500">{getTimeAgo(report.date)}</span>
+                  <div className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg ">
+                    View <ArrowRight size={12} />
                   </div>
-
-                  {report.aiSummary?.english && (
-                    <p className="text-sm text-gray-600 line-clamp-3 bg-green-50 rounded-lg p-3 border border-green-100">
-                      {report.aiSummary.english}
-                    </p>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <NavLink 
-                    to={`/report/${report._id}`}
-                    className="text-green-600 font-semibold text-sm flex items-center gap-2 group-hover:gap-3 transition-all duration-300"
-                  >
-                    View Details
-                    <FaArrowRight className="text-xs group-hover:translate-x-1 transition-transform" />
-                  </NavLink>
                 </div>
               </div>
             ))}
-          </div>
-        )}
 
-        {/* Footer Stats */}
-        {filteredAndSortedReports.length > 0 && (
-          <div className="mt-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl shadow-2xl p-6 text-white transition-all duration-300">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className="text-xl font-bold mb-2">Report Summary</h3>
-                <p className="text-green-100">
-                  Showing {filteredAndSortedReports.length} of {reports.length} total reports
-                  {searchTerm && ` for "${searchTerm}"`}
-                </p>
+            {filteredReports.length === 0 && (
+              <div className="col-span-full py-32 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-md  flex flex-col items-center justify-center gap-8 animate-in fade-in zoom-in duration-500">
+                <div className="w-24 h-24 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-300 shadow-inner">
+                   <FileText size={48} />
+                </div>
+                <div>
+                   <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-3">No Reports Available</h3>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] max-w-xs mx-auto opacity-70 leading-relaxed">You haven't uploaded any medical reports yet. Add your first scan to get started.</p>
+                </div>
+                <button 
+                  onClick={() => navigate('/upload-report')}
+                  className="hover:bg-emerald-700 cursor-pointer   bg-emerald-600 text-white px-8 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md  active:scale-95 flex items-center gap-2"
+                >
+                  <CloudUpload size={16} /> Upload New Report
+                </button>
               </div>
-              <div className="flex gap-6 mt-4 md:mt-0">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{reports.length}</div>
-                  <div className="text-green-100 text-sm">Total Reports</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{reportTypes.length}</div>
-                  <div className="text-green-100 text-sm">Report Types</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">
-                    {reports.length > 0 ? formatDate(reports[0].date) : 'N/A'}
-                  </div>
-                  <div className="text-green-100 text-sm">Latest Report</div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="Delete Report"
+        message={`Are you sure you want to delete "${deleteModal.reportTitle}"? This action cannot be undone.`}
+        confirmText="Delete"
+        onConfirm={handleDelete}
+        onCancel={closeDeleteModal}
+        type="danger"
+      />
     </div>
   );
 };

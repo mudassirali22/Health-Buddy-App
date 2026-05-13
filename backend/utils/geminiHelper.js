@@ -1,7 +1,7 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import https from "https";
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY?.trim());
 
 // download file to buffer
 const downloadFile = (url) =>
@@ -15,24 +15,61 @@ const downloadFile = (url) =>
       .on("error", reject);
   });
 
-const MODEL_FALLBACKS = ["gemini-2.5-flash", "gemini-2.0-flash-001"];
+const MODEL_FALLBACKS = [
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-2.5-pro",
+];
 
-const getAvailableModel = async () => {
-  for (const modelName of MODEL_FALLBACKS) {
+let cachedModel = null;
+let lastCheckTime = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Helper for retrying AI calls
+const callAIWithRetry = async (fn, maxRetries = 5) => {
+  for (let i = 0; i < maxRetries; i++) {
     try {
-      // Test model availability 
-      const response = await genAI.models.generateContent({
-        model: modelName,
-        contents: [{ role: "user", parts: [{ text: "ping" }] }]
-      });
-
-      return modelName;
-
+      return await fn();
     } catch (err) {
-      console.error('AI not available:', err.message);
+      const isRetryable = err.message.includes("503") || err.message.includes("429") || err.message.includes("high demand");
+      if (isRetryable && i < maxRetries - 1) {
+        // More patient delay for free tier: 2s, 4s, 8s, 16s
+        const delay = Math.pow(2, i + 1) * 1000;
+        console.warn(`AI busy or quota hit. Retrying in ${delay}ms... (Attempt ${i + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw err;
     }
   }
-  throw new Error("No working AI model found .");
+};
+
+const getAvailableModel = async () => {
+  const now = Date.now();
+  if (cachedModel && (now - lastCheckTime < CACHE_DURATION)) {
+    return cachedModel;
+  }
+
+  for (const modelName of MODEL_FALLBACKS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      // Simple ping for availability
+      await Promise.race([
+        model.generateContent({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }] }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000))
+      ]);
+      
+      cachedModel = modelName;
+      lastCheckTime = Date.now();
+      return modelName;
+    } catch (err) {
+      console.warn(`Model ${modelName} availability check failed:`, err.message);
+    }
+  }
+  return cachedModel || "gemini-2.0-flash";
 };
 
 export const analyzeReport = async (fileUrl, reportType) => {
@@ -83,10 +120,10 @@ Important Notes:
 `;
 
     const modelName = await getAvailableModel();
+    const model = genAI.getGenerativeModel({ model: modelName });
     
-    //  API call
-    const response = await genAI.models.generateContent({
-      model: modelName,
+    //  API call with retry
+    const result = await callAIWithRetry(() => model.generateContent({
       contents: [{
         role: "user",
         parts: [
@@ -104,9 +141,10 @@ Important Notes:
         topP: 0.8,
         topK: 40,
       }
-    });
+    }));
 
-    const text = response.text;
+    const response = await result.response;
+    const text = response.text();
     
     // JSON parsing
     let jsonMatch;
@@ -166,7 +204,9 @@ Important Notes:
       homeRemedies: ["Stay hydrated", "Get adequate rest", "Maintain regular physical activity"],
       disclaimer: "This AI analysis is for informational purposes only. Always consult your doctor before making any medical decisions.",
       error: true,
-      errorMessage: err.message
+      errorMessage: err.message.includes("SSL") || err.message.includes("alert number 80") 
+        ? "Secure connection failed. Please check your network." 
+        : "AI Service is temporarily busy. Using standard diagnostic template."
     };
   }
 };

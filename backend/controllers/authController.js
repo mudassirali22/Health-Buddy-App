@@ -1,7 +1,9 @@
 import User from '../models/User.js';
+import FamilyMember from '../models/FamilyMember.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { sendPasswordResetEmail, sendPasswordChangedConfirmation } from '../utils/emailService.js';
+import cloudinary from '../config/cloudinary.js';
 
 // Rate limiting store
 const resetAttempts = new Map();
@@ -62,6 +64,7 @@ export const register = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        mrNumber: user.mrNumber,
         token: generateToken(user._id),
       },
     });
@@ -74,7 +77,7 @@ export const register = async (req, res) => {
   }
 };
 
-// Login user
+// Login user with email + password
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -102,11 +105,104 @@ export const login = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        mrNumber: user.mrNumber,
         token: generateToken(user._id),
+        loginType: 'email'
       },
     });
   } catch (error) {
     console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Login failed',
+    });
+  }
+};
+
+// Login with MR Number + Password (for both users and family members)
+export const loginWithMR = async (req, res) => {
+  try {
+    const { mrNumber, password } = req.body;
+
+    if (!mrNumber || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'MR Number and password are required',
+      });
+    }
+
+    const normalizedMR = mrNumber.toUpperCase().trim();
+
+    // First check if it's a primary user
+    const user = await User.findOne({ mrNumber: normalizedMR });
+    if (user) {
+      const isPasswordCorrect = await user.comparePassword(password);
+      if (!isPasswordCorrect) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid MR Number or password',
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          mrNumber: user.mrNumber,
+          token: generateToken(user._id),
+          loginType: 'mr',
+          accountType: 'primary'
+        },
+      });
+    }
+
+    // Then check if it's a family member
+    const familyMember = await FamilyMember.findOne({ mrNumber: normalizedMR });
+    if (familyMember) {
+      const isPasswordCorrect = await familyMember.comparePassword(password);
+      if (!isPasswordCorrect) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid MR Number or password',
+        });
+      }
+
+      // Login as the parent user but auto-select this family member
+      const parentUser = await User.findById(familyMember.user);
+      if (!parentUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'Associated account not found',
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          _id: parentUser._id,
+          name: parentUser.name,
+          email: parentUser.email,
+          mrNumber: parentUser.mrNumber,
+          token: generateToken(parentUser._id),
+          loginType: 'mr',
+          accountType: 'family',
+          familyMemberId: familyMember._id,
+          familyMemberName: familyMember.name
+        },
+      });
+    }
+
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid MR Number or password',
+    });
+
+  } catch (error) {
+    console.error('MR Login error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Login failed',
@@ -143,7 +239,7 @@ export const updateProfile = async (req, res) => {
 
     const updates = {};
     allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined && req.body[field] !== '') {
+      if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
       }
     });
@@ -160,7 +256,7 @@ export const updateProfile = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Profile updated successfully ',
+      message: 'Profile updated successfully',
       data: updatedUser,
     });
   } catch (error) {
@@ -207,7 +303,7 @@ export const forgotPassword = async (req, res) => {
       const resetToken = user.getResetPasswordToken();
       await user.save({ validateBeforeSave: false });
 
-      // Send email - UPDATED
+      // Send email
       await sendPasswordResetEmail(user.email, resetToken, userAgent);
       
       res.json({

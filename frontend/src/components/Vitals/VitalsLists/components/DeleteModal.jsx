@@ -3,7 +3,7 @@ import { AlertTriangle, Trash2 } from 'lucide-react';
 const DeleteModal = ({ deleteModal, selectedVitals, onClose, onDelete }) => {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full transform transition-all">
+      <div className="bg-white rounded-3xl shadow-lg max-w-md w-full transform transition-all">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center">
@@ -42,7 +42,7 @@ const DeleteModal = ({ deleteModal, selectedVitals, onClose, onDelete }) => {
           </button>
           <button
             onClick={onDelete}
-            className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-200"
+            className="flex-1 bg-emerald-600 from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-200"
           >
             <Trash2 className="w-4 h-4" />
             {deleteModal.type === 'multiple' ? `Delete ${selectedVitals.size} Records` : 'Delete Record'}

@@ -1,91 +1,71 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
+import { useFamily } from '../../context/FamilyContext';
 import { 
-  Upload, 
-  FileText, 
-  Calendar, 
-  Type, 
-  AlertCircle, 
-  CheckCircle, 
+  CloudUpload, 
   ArrowLeft,
-  CloudUpload,
+  ShieldCheck,
   Zap,
-  Languages,
-  Stethoscope,
-  Dot
+  RotateCw,
+  FileText,
+  Save,
+  Loader2,
+  X
 } from 'lucide-react';
 
 const UploadReport = () => {
+  const { id } = useParams();
+  const isEdit = !!id;
+  const { selectedFamilyMember } = useFamily();
+    const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     title: '',
     reportType: 'Other',
     date: new Date().toISOString().split('T')[0]
   });
   const [file, setFile] = useState(null);
+  const [fetching, setFetching] = useState(isEdit);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [isDragging, setIsDragging] = useState(false);
-  const navigate = useNavigate();
 
-const reportTypes = [
-  "Blood Test",
-  "Urine Test",
-  "X-Ray Report",
-  "MRI Scan",
-  "CT Scan",
-  "Ultrasound",
-  "Blood Pressure",
-  "Diabetes Report",
-  "Thyroid Test",
-  "Liver Function Test",
-  "Kidney Function Test",
-  "Vitamin Test",
-  "Cholesterol Report",
-  "Dental Report",
-  "Eye Checkup",
-  "Allergy Test",
-  "Prescription",
-  "Discharge Summary",
-  "Surgery Report",
-  "Physiotherapy",
-  "Vaccination Record",
-  "Other"
-]
+  const reportTypes = [
+    "Blood Test", "Urine Test", "X-Ray Report", "MRI Scan", "CT Scan", "Ultrasound",
+    "Diabetes Report", "Thyroid Test", "Liver Function", "Kidney Function",
+    "Prescription", "Discharge Summary", "Other"
+  ];
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  useEffect(() => {
+    if (isEdit) {
+      fetchReport();
+    }
+  }, [id]);
+
+  const fetchReport = async () => {
+    try {
+      const res = await api.get(`/reports/${id}`);
+      const r = res.data.data;
+      setFormData({
+        title: r.title || '',
+        reportType: r.reportType || 'Other',
+        date: new Date(r.date).toISOString().split('T')[0]
+      });
+    } catch (err) {
+      setError('Failed to fetch report details.');
+          } finally {
+      setFetching(false);
+    }
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const droppedFile = e.dataTransfer.files[0];
-    validateAndSetFile(droppedFile);
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const validateAndSetFile = (selectedFile) => {
     if (selectedFile) {
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
       if (!validTypes.includes(selectedFile.type)) {
-        setError('Only  image files (JPG, PNG) are allowed');
-        setFile(null);
-        return;
-      }
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        setError('File size must be less than 10MB');
-        setFile(null);
+                setFile(null);
         return;
       }
       setFile(selectedFile);
@@ -93,298 +73,183 @@ const reportTypes = [
     }
   };
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    validateAndSetFile(selectedFile);
-  };
+  const handleFileChange = (e) => validateAndSetFile(e.target.files[0]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!file) {
-      setError('Please select a file to upload');
-      return;
-    }
-
+    if (!isEdit && !file) { setError('Please select a file'); return; }
+    
     setUploading(true);
-
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append('file', file);
-      formDataToSend.append('title', formData.title);
-      formDataToSend.append('reportType', formData.reportType);
-      formDataToSend.append('date', formData.date);
-
-    const response = await api.post('/reports', formDataToSend, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    });
-
-
-      setSuccess('Report uploaded successfully! AI is analyzing your report...');
-      setTimeout(() => {
-        navigate(`/report/${response.data.data._id}`);
-      }, 2000);
+      const data = new FormData();
+      if (file) data.append('file', file);
+      data.append('title', formData.title);
+      data.append('reportType', formData.reportType);
+      data.append('date', formData.date);
+      
+      if (!isEdit) {
+        data.append('familyMember', selectedFamilyMember?._id || 'null');
+        const response = await api.post('/reports', data, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+                setTimeout(() => navigate(`/report/${response.data.data._id}`), 1500);
+      } else {
+        // For editing, we might use a PUT request. 
+        // If file is provided, we use multipart, otherwise JSON is fine.
+        if (file) {
+           await api.put(`/reports/${id}`, data, {
+             headers: { 'Content-Type': 'multipart/form-data' },
+           });
+        } else {
+           await api.put(`/reports/${id}`, {
+             title: formData.title,
+             reportType: formData.reportType,
+             date: formData.date
+           });
+        }
+                setTimeout(() => navigate(`/report/${id}`), 1000);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload report. Please try again.');
-    } finally {
+      setError(err.response?.data?.message || 'Action failed');
+          } finally {
       setUploading(false);
     }
   };
 
+  if (fetching) {
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-4 border-emerald-500/10 border-t-emerald-600 rounded-full animate-spin"></div>
+        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] animate-pulse">Syncing Diagnostic Vault...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header Section */}
-        <div className='pb-5'>
-          <button
-            onClick={() => navigate(-1)}
-            className="bg-white text-green-600 hover:text-green-700 px-6 py-3 rounded-xl font-semibold flex items-center gap-3 shadow-lg hover:shadow-xl transition-all duration-300 border border-green-100 hover:border-green-200"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back 
-          </button>
-        </div>
-        <div className="flex items-center gap-4 mb-8">
-          <div className="flex-1 text-center">
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-              Upload Medical Report
-            </h1>
-            <p className="text-gray-600 text-lg mt-2">Get AI Health Analysis</p>
+    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-6">
+      
+      {/* Header Banner */}
+      <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 overflow-hidden relative">
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg ">
+            <CloudUpload size={28} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight">{isEdit ? 'Edit Report Info' : 'Upload Report'}</h1>
+            <p className="text-slate-500 text-sm font-medium mt-1">
+              {isEdit ? `Updating metadata for: ${formData.title}` : (selectedFamilyMember ? `Analyzing records for ${selectedFamilyMember.name}` : "Upload your health reports for AI analysis.")}
+            </p>
           </div>
         </div>
+        <button onClick={() => navigate(-1)} className="bg-white border border-slate-100 text-slate-600 px-5 py-2.5 rounded-xl font-bold transition-all hover:bg-slate-50 flex items-center gap-2 text-xs uppercase tracking-wider relative z-10">
+          <ArrowLeft size={16} /> Back
+        </button>
+      </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Form Section */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-green-100">
-              {error && (
-                <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl mb-6 flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 px-6 py-4 rounded-2xl mb-6 flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                  {success}
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Report Title */}
-                <div className="space-y-2">
-                  <label htmlFor="title" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Type className="w-4 h-4 text-green-600" />
-                    Report Title *
-                  </label>
-                  <input
-                    type="text"
-                    id="title"
-                    name="title"
-                    required
-                    value={formData.title}
-                    onChange={handleChange}
-                    placeholder="e.g,Complete Blood Count - Month - Year"
-                    className="w-full text-sm sm:text-md px-2 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 bg-gray-50 hover:bg-white"
-                  />
-                </div>
-
-                {/* Report Type and Date Grid */}
-                <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         <div className="lg:col-span-2 space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+               <div className="standard-card p-6 sm:p-8 space-y-6">
+                  <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+                    <FileText size={16} className="text-emerald-600" /> Report Details
+                  </h2>
+                  
                   <div className="space-y-2">
-                    <label htmlFor="reportType" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                      <FileText className="w-4 h-4 text-green-600" />
-                      Report Type *
-                    </label>
-                    <select
-                      id="reportType"
-                      name="reportType"
-                      value={formData.reportType}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 bg-gray-50 hover:bg-white"
-                    >
-                      {reportTypes.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Document Title</label>
+                     <input
+                       type="text"
+                       name="title"
+                       required
+                       value={formData.title}
+                       onChange={handleChange}
+                       placeholder="e.g. CBC Blood Report"
+                       className="w-full bg-slate-50 border-none rounded-xl px-5 py-3.5 text-sm font-bold text-slate-800 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label htmlFor="date" className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                      <Calendar className="w-4 h-4 text-green-600" />
-                      Report Date *
-                    </label>
-                    <input
-                      type="date"
-                      id="date"
-                      name="date"
-                      required
-                      value={formData.date}
-                      onChange={handleChange}
-                      max={new Date().toISOString().split('T')[0]}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 bg-gray-50 hover:bg-white"
-                    />
-                  </div>
-                </div>
-
-                {/* File Upload Section */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Upload className="w-4 h-4 text-green-600" />
-                    Upload File * (JPG, PNG - Max 10MB)
-                  </label>
-                  <div
-                    className={`mt-1 border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 cursor-pointer ${
-                      isDragging
-                        ? 'border-green-500 bg-green-50 scale-105'
-                        : file
-                        ? 'border-green-400 bg-green-50'
-                        : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
-                    }`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => document.getElementById('file').click()}
-                  >
-                    <div className="space-y-4">
-                      <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-emerald-100 rounded-2xl flex items-center justify-center mx-auto">
-                        <CloudUpload className={`w-8 h-8 ${file ? 'text-green-600' : 'text-gray-400'}`} />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <p className="text-lg font-semibold text-gray-900">
-                          {file ? 'File Selected' : 'Choose file or drag & drop'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {file ? file.name : ' PNG, JPG up to 10MB'}
-                        </p>
-                      </div>
-
-                      {!file && (
-                        <button
-                          type="button"
-                          className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-2 rounded-xl font-semibold hover:shadow-lg transition-all duration-300"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
+                        <select
+                          name="reportType"
+                          value={formData.reportType}
+                          onChange={handleChange}
+                          className="w-full bg-slate-50 border-none rounded-xl px-5 py-3.5 text-sm font-bold text-slate-800 focus:ring-1 focus:ring-emerald-500 outline-none appearance-none cursor-pointer"
                         >
-                          Browse Files
-                        </button>
-                      )}
-
-                      {file && (
-                        <div className="flex items-center justify-center gap-2 text-green-600 font-semibold">
-                          <CheckCircle className="w-5 h-5" />
-                          Ready to upload
-                        </div>
-                      )}
-                    </div>
-                    
-                    <input
-                      id="file"
-                      name="file"
-                      type="file"
-                      className="sr-only"
-                      onChange={handleFileChange}
-                      accept=".jpg,.jpeg,.png"
-                    />
+                          {reportTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Report Date</label>
+                        <input
+                          type="date"
+                          name="date"
+                          required
+                          value={formData.date}
+                          onChange={handleChange}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="w-full bg-slate-50 border-none rounded-xl px-5 py-3.5 text-sm font-bold text-slate-800 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                        />
+                     </div>
                   </div>
-                </div>
+               </div>
 
-                {/* Action Buttons */}
-                <div className="flex space-x-4 pt-4">
-                  <button
-                    type="submit"
-                    disabled={uploading || !file}
-                    className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 px-3 sm:px-6 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-3"
-                  >
-                    {uploading ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Uploading & Analyzing...
-                      </>
+               {/* Upload Zone - Only show optional for edit */}
+               <div 
+                 className={`standard-card p-10 border-2 border-dashed transition-all cursor-pointer text-center relative overflow-hidden group ${
+                   isDragging ? 'border-emerald-500 bg-emerald-50/50 ' : 'border-slate-100 hover:border-emerald-300 hover:bg-emerald-50/10'
+                 }`}
+                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                 onDragLeave={() => setIsDragging(false)}
+                 onDrop={(e) => { e.preventDefault(); setIsDragging(false); validateAndSetFile(e.dataTransfer.files[0]); }}
+                 onClick={() => document.getElementById('file-input').click()}
+               >
+                 <div className="relative z-10 flex flex-col items-center">
+                    <CloudUpload className="text-emerald-500 mb-4 group-hover:scale-110 transition-transform" size={40} />
+                    {file ? (
+                      <div className="space-y-2">
+                        <p className="text-base font-black text-slate-800 uppercase tracking-tight">{file.name}</p>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setFile(null); }} className="text-[10px] font-black text-red-500 uppercase tracking-widest hover:underline">Remove Selected File</button>
+                      </div>
                     ) : (
                       <>
-                        <Upload className="w-5 h-5" />
-                        Upload Report
+                        <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">
+                           {isEdit ? 'Replace existing document?' : 'Drop your report here'}
+                        </h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">
+                           {isEdit ? 'Click to browse a new image (optional)' : 'Or click to browse images (JPG/PNG)'}
+                        </p>
                       </>
                     )}
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => navigate('/dashboard')}
-                    className="px-8 py-4 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all duration-300"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+                 </div>
+                 <input id="file-input" type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+               </div>
 
-          {/* Info Sidebar */}
-          <div className="space-y-6">
-            {/* Analysis Benefits */}
-            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-xl p-6 text-white">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-3">
-                <Zap className="w-6 h-6 text-yellow-300" />
-                AI Analysis Benefits
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Languages className="w-5 h-5 text-green-200 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold">Bilingual Summary</p>
-                    <p className="text-green-100 text-sm">Get insights in English </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Stethoscope className="w-5 h-5 text-green-200 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold">Doctor Questions</p>
-                    <p className="text-green-100 text-sm">Smart questions for your next visit</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+               {error && (
+                 <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-center gap-3">
+                   <X className="text-red-500" size={18} />
+                   <p className="text-red-700 text-[10px] font-black uppercase tracking-widest">{error}</p>
+                 </div>
+               )}
 
-            {/* Supported Formats */}
-            <div className="bg-white rounded-2xl shadow-xl p-6 border border-green-100">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-green-600" />
-                Supported Formats
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                  <span className="font-medium text-gray-700">JPEG Images</span>
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                  <span className="font-medium text-gray-700">PNG Images</span>
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                </div>
-              </div>
-            </div>
+               <button type="submit" disabled={uploading || (!isEdit && !file)} className="w-full bg-slate-800 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 shadow-md  transition-all disabled:opacity-50 active:scale-95 flex items-center justify-center gap-3">
 
-            {/* Processing Time */}
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl shadow-xl p-6 border border-blue-100">
-              <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <Zap className="w-5 h-5 text-blue-600" />
-                Processing Time
-              </h3>
-              <div className="space-y-2 text-sm text-gray-600">
-                <p className='flex'> <Dot/> Image analysis: 15-30 seconds</p>
-                <p className='flex'><Dot/>Complex reports: Up to 2 minutes</p>
-              </div>
+                  {uploading ? 'Processing...' : (isEdit ? 'Update Report Details' : 'Upload Report')}
+               </button>
+            </form>
+         </div>
+
+         <div className="space-y-6">
+            <div className="bg-slate-800 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+               <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-6 border border-white/10">
+                  <Zap size={24} className="text-emerald-400" />
+               </div>
+               <h3 className="text-lg font-black tracking-tight mb-2">Metadata Audit</h3>
+               <p className="text-slate-300 text-xs font-medium leading-relaxed opacity-90">
+                 Editing report details allows you to correct OCR mistakes or categorize your documents for better timeline sorting.
+               </p>
             </div>
-          </div>
-        </div>
+         </div>
       </div>
     </div>
   );
