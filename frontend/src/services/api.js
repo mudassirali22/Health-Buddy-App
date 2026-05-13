@@ -14,6 +14,11 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
+    // Normalize URL to be relative to baseURL (avoids path replacement issues)
+    if (config.url && config.url.startsWith('/')) {
+      config.url = config.url.substring(1);
+    }
+
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
