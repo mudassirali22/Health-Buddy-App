@@ -270,12 +270,7 @@ export const sendPasswordResetEmail = async (email, resetToken, userAgent = 'Unk
     console.log('✅ Password reset email sent to:', email, '| MessageId:', info.messageId);
     return true;
   } catch (error) {
-    console.error('❌ Failed to send password reset email:', error.message);
-    // Reset transporter on auth errors so it reconnects
-    if (error.code === 'EAUTH' || error.responseCode === 535) {
-      transporter = null;
-      console.error('💡 Authentication failed. Check your EMAIL_USER and EMAIL_PASS (must be App Password for Gmail).');
-    }
+    console.error('Failed to send password reset email:', error);
     throw new Error('Could not send reset email. Please try again.');
   }
 };
