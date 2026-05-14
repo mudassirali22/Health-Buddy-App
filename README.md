@@ -1,4 +1,4 @@
-#  HealthBuddy: AI-Powered Clinical Command Center
+#  HealthBuddy: Your Smart Friend for Health
 
 **HealthBuddy** is a premium, VIP-grade health monitoring platform designed to transform how individuals and families manage their medical data. By leveraging **Gemini AI**, HealthBuddy provides real-time diagnostic interpretation, vitals tracking, and a secure health archive within a stunning "Emerald" design system.
 
