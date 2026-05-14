@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
    Heart,
    Activity,
@@ -22,6 +23,7 @@ import {
    Sparkles,
    Bell,
    Clock,
+   HeartPulse
 } from 'lucide-react';
 import { FaGithub, FaLinkedin } from "react-icons/fa";
 import { NavLink } from 'react-router-dom';
@@ -30,7 +32,20 @@ const Home = () => {
    const [isMenuOpen, setIsMenuOpen] = useState(false);
    const [isVisible, setIsVisible] = useState(false);
 
+   // Pre-warm the backend to prevent cold-start delays
    useEffect(() => {
+      const warmUpBackend = async () => {
+         try {
+            const apiURL = import.meta.env.VITE_BACKEND_API_URL || "https://health-buddy-app-backend-api.onrender.com/api";
+            // Extract the base URL to hit the root '/' health-check endpoint
+            const baseURL = apiURL.replace(/\/api\/?$/, '');
+            // Send a lightweight, standard GET request to wake the server
+            fetch(`${baseURL}/`).catch(() => {});
+         } catch (err) {
+            // Silently fail as this is just a background warm-up
+         }
+      };
+      warmUpBackend();
       setIsVisible(true);
    }, []);
 
@@ -131,82 +146,144 @@ const Home = () => {
    return (
       <div className="min-h-screen bg-white selection:bg-emerald-100 selection:text-emerald-900">
          {/* Navigation */}
-         <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isVisible ? 'translate-y-0' : '-translate-y-full'} bg-white/90 backdrop-blur-md border-b border-slate-100`}>
-            <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-               <div className="flex items-center gap-3">
+         <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${isVisible ? 'translate-y-0' : '-translate-y-full'} bg-white border-b border-slate-100 shadow-sm`}>
+            <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between relative">
+               {/* Mobile Menu Trigger (Left) */}
+               <motion.button 
+                  onClick={() => setIsMenuOpen(true)}
+                  whileTap={{ scale: 0.9 }}
+                  className="md:hidden w-11 h-11 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600 border border-slate-100 active:bg-emerald-50 transition-colors z-10"
+               >
+                  <Menu size={22} />
+               </motion.button>
+
+               {/* Logo (Center on Mobile, Left on Desktop) */}
+               <div className="flex items-center gap-3 absolute left-1/2 -translate-x-1/2 md:static md:left-0 md:translate-x-0">
                   <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg ">
                      <Heart size={20} fill="currentColor" />
                   </div>
                   <span className="text-2xl font-black text-slate-800 tracking-tighter">HealthBuddy</span>
                </div>
 
-               <div className="hidden md:flex items-center gap-8">
-                  {['Features', 'Process', 'Reviews'].map((item) => (
-                     <a key={item} href={`#${item.toLowerCase()}`} className="text-sm font-bold text-slate-500 hover:text-emerald-600 transition-colors">
-                        {item}
-                     </a>
-                  ))}
-               </div>
+               {/* Right Aligned Container (Desktop) */}
+               <div className="hidden md:flex flex-1 items-center justify-end gap-10">
+                  {/* Desktop Links */}
+                  <div className="flex items-center gap-8">
+                     {['Features', 'Process', 'Reviews'].map((item) => (
+                        <a key={item} href={`#${item.toLowerCase()}`} className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-emerald-600 transition-colors">
+                           {item}
+                        </a>
+                     ))}
+                  </div>
 
-               <div className="flex items-center gap-4">
-                  <div className="hidden md:flex items-center gap-4">
-                     <NavLink to="/auth" state={{ isLogin: true }} className="text-sm font-bold text-slate-600 hover:text-emerald-600 px-2 transition-colors">
+                  {/* Desktop Buttons */}
+                  <div className="flex items-center gap-4 border-l border-slate-100 pl-10">
+                     <NavLink to="/auth" state={{ isLogin: true }} className="text-[11px] font-black uppercase tracking-widest text-slate-600 hover:text-emerald-600 px-2 transition-colors">
                         Login
                      </NavLink>
-                     <NavLink to="/auth" state={{ isLogin: false }} className="bg-emerald-600 text-white text-sm font-bold px-6 py-3 rounded-xl hover:bg-emerald-700 transition-all shadow-lg  active:scale-95 flex items-center gap-2">
-                        Get Started <ArrowRight size={16} />
+                     <NavLink to="/auth" state={{ isLogin: false }} className="bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-6 py-3.5 rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 active:scale-95 flex items-center gap-2">
+                        Get Started <ArrowRight size={14} />
                      </NavLink>
                   </div>
-                  <button 
-                     onClick={() => setIsMenuOpen(true)}
-                     className="md:hidden w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600"
-                  >
-                     <Menu size={20} />
-                  </button>
                </div>
+
+               {/* Placeholder for symmetry on mobile */}
+               <div className="md:hidden w-11 h-11" />
             </div>
 
-            {/* Mobile Menu Drawer */}
-            <div className={`fixed inset-0 z-[100] md:hidden transition-all duration-500 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-               <div className="absolute inset-0 bg-slate-800/60 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)} />
-               <div className={`absolute right-0 top-0 h-full w-[280px] bg-white shadow-lg transition-transform duration-500 ease-out ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-                  <div className="p-6 flex flex-col h-full">
-                     <div className="flex items-center justify-between mb-10">
-                        <div className="flex items-center gap-2">
-                           <Heart className="text-emerald-600" size={24} fill="currentColor" />
-                           <span className="font-black text-slate-800 tracking-tighter">HealthBuddy</span>
+         </nav>
+
+         {/* Mobile Menu Drawer (Premium Image-Match) */}
+         <AnimatePresence>
+            {isMenuOpen && (
+               <div className="fixed inset-0 z-[100] md:hidden">
+                  {/* Backdrop */}
+                  <motion.div 
+                     initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                     animate={{ opacity: 1, backdropFilter: "blur(8px)" }}
+                     exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                     transition={{ duration: 0.4 }}
+                     className="absolute inset-0 bg-slate-900/60" 
+                     onClick={() => setIsMenuOpen(false)} 
+                  />
+                  
+                  {/* Drawer Content */}
+                  <motion.div 
+                     initial={{ x: "-100%" }}
+                     animate={{ x: 0 }}
+                     exit={{ x: "-100%" }}
+                     transition={{ type: "spring", damping: 30, stiffness: 200 }}
+                     className="absolute left-0 top-0 h-full w-[85%] max-w-[340px] bg-white shadow-2xl flex flex-col overflow-hidden"
+                  >
+                     {/* Header Section */}
+                     <div className="p-8 pb-6 flex items-center justify-between border-b border-slate-50">
+                        <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-100">
+                              <Heart size={24} fill="currentColor" />
+                           </div>
+                           <div>
+                              <span className="block text-lg font-black text-slate-800 tracking-tight leading-none uppercase">HEALTHBUDDY</span>
+                              <span className="block text-[8px] font-black text-emerald-600 uppercase tracking-[0.2em] mt-1.5">CLINICAL COMMAND</span>
+                           </div>
                         </div>
-                        <button onClick={() => setIsMenuOpen(false)} className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
+                        <button 
+                           onClick={() => setIsMenuOpen(false)} 
+                           className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-all"
+                        >
                            <X size={20} />
                         </button>
                      </div>
 
-                     <div className="space-y-4 flex-1">
-                        {['Features', 'Process', 'Reviews'].map((item) => (
-                           <a 
-                              key={item} 
-                              href={`#${item.toLowerCase()}`} 
-                              onClick={() => setIsMenuOpen(false)}
-                              className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl text-slate-600 font-bold hover:bg-emerald-50 hover:text-emerald-600 transition-all"
-                           >
-                              {item}
-                              <ArrowRight size={16} />
-                           </a>
-                        ))}
+                     <div className="flex-1 overflow-y-auto px-6 py-8 space-y-10">
+                        {/* 1. Main Navigation */}
+                        <div className="space-y-4">
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] ml-2">NAVIGATION</p>
+                           <div className="space-y-1">
+                              {['Features', 'Process', 'Reviews'].map((item) => (
+                                 <a 
+                                    key={item}
+                                    href={`#${item.toLowerCase()}`} 
+                                    onClick={() => setIsMenuOpen(false)} 
+                                    className="flex items-center justify-between p-4 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 rounded-2xl transition-all group"
+                                 >
+                                    <span className="text-[12px] font-black uppercase tracking-widest">{item}</span>
+                                    <ArrowRight size={16} className="text-slate-300 group-hover:translate-x-1 transition-all" />
+                                 </a>
+                              ))}
+                           </div>
+                        </div>
+
+                        {/* 2. Account Actions */}
+                        <div className="space-y-4">
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] ml-2">ACCOUNT</p>
+                           <div className="space-y-3">
+                              <NavLink to="/auth" state={{ isLogin: true }} onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between p-5 bg-slate-50/80 rounded-2xl border border-transparent hover:border-emerald-100 hover:bg-white transition-all">
+                                 <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">Login</span>
+                                 <ArrowRight size={16} className="text-slate-400" />
+                              </NavLink>
+                              <NavLink to="/auth" state={{ isLogin: false }} onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between p-5 bg-slate-50/80 rounded-2xl border border-transparent hover:border-emerald-100 hover:bg-white transition-all">
+                                 <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">Register</span>
+                                 <ArrowRight size={16} className="text-slate-400" />
+                              </NavLink>
+                           </div>
+                        </div>
+
+                        {/* 3. Simple Support */}
+                        <div className="space-y-4">
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] ml-2">SUPPORT</p>
+                           <div className="space-y-3">
+                              <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-emerald-100 transition-colors cursor-pointer group">
+                                 <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight">Help Center</p>
+                                 <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Support & Guides</p>
+                              </div>
+                           </div>
+                        </div>
                      </div>
 
-                     <div className="pt-6 border-t border-slate-100 space-y-3">
-                        <NavLink to="/auth" state={{ isLogin: true }} className="flex items-center justify-center w-full py-4 rounded-2xl text-slate-600 font-black text-xs uppercase tracking-widest bg-slate-50">
-                           Login
-                        </NavLink>
-                        <NavLink to="/auth" state={{ isLogin: false }} className="flex items-center justify-center w-full py-4 rounded-2xl text-white font-black text-xs uppercase tracking-widest bg-emerald-600 shadow-md ">
-                           Sign Up
-                        </NavLink>
-                     </div>
-                  </div>
+                  </motion.div>
                </div>
-            </div>
-         </nav>
+            )}
+         </AnimatePresence>
 
          {/* Hero Section */}
          <section className="relative pt-25 pb-15 px-6 overflow-hidden">
@@ -229,7 +306,7 @@ const Home = () => {
                   </div>
                </div>
 
-                <div className={`relative transition-all duration-1000 delay-300 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+               <div className={`relative transition-all duration-1000 delay-300 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
                   {/* Dashboard Mockup - Compact Version */}
                   <div className="relative max-w-full sm:max-w-lg mx-auto bg-slate-50/50 p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-slate-100 shadow-md ">
                      {/* Header Section */}
@@ -382,7 +459,7 @@ const Home = () => {
                <div className="grid md:grid-cols-3 gap-12 relative">
                   {/* Connector Line (Desktop) */}
                   <div className="hidden lg:block absolute top-1/3 left-0 w-full h-0.5 bg-slate-200 -z-10"></div>
-                  
+
                   {howItWorks.map((item, idx) => (
                      <div key={idx} className="relative bg-white p-10 rounded-[2.5rem] border border-slate-200 text-center space-y-6 hover:-translate-y-2 transition-transform duration-500">
                         <div className="w-16 h-16 bg-slate-800 text-white rounded-2xl flex items-center justify-center text-2xl font-black mx-auto shadow-lg">
@@ -424,7 +501,7 @@ const Home = () => {
             <div className="max-w-7xl mx-auto bg-slate-800 rounded-[4rem] p-12 md:p-24 text-center relative overflow-hidden">
                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full translate-x-32 -translate-y-32"></div>
                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 rounded-full -translate-x-32 translate-y-32"></div>
-               
+
                <div className="relative z-10 space-y-8">
                   <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter leading-tight">
                      Join the Future of <br />
@@ -463,7 +540,7 @@ const Home = () => {
                   </div>
                </div>
 
-                <div>
+               <div>
                   <h5 className="font-black text-slate-900 uppercase tracking-widest text-sm mb-8">Features</h5>
                   <ul className="space-y-4">
                      {['AI Report Analysis', 'Vitals Tracking', 'Medicine Reminders', 'Family Management'].map(item => (
@@ -476,7 +553,7 @@ const Home = () => {
 
                <div>
                   <h5 className="font-black text-slate-900 uppercase tracking-widest text-sm mb-8">Account</h5>
-                   <ul className="space-y-4">
+                  <ul className="space-y-4">
                      <li><NavLink to="/auth" state={{ isLogin: true }} className="text-slate-500 hover:text-emerald-600 font-bold transition-colors">Login</NavLink></li>
                      <li><NavLink to="/auth" state={{ isLogin: false }} className="text-slate-500 hover:text-emerald-600 font-bold transition-colors">Sign up</NavLink></li>
                   </ul>

@@ -70,8 +70,8 @@ const Navbar = () => {
             >
               <motion.div
                 initial={false}
-                animate={{ 
-                  rotate: isMobileMenuOpen ? 180 : 0, 
+                animate={{
+                  rotate: isMobileMenuOpen ? 180 : 0,
                   scale: isMobileMenuOpen ? 0.9 : 1,
                 }}
                 transition={{ type: "spring", damping: 15, stiffness: 400 }}
@@ -82,8 +82,8 @@ const Navbar = () => {
 
             {/* Logo*/}
             <div className="flex items-center gap-3">
-              <NavLink 
-                to="/dashboard" 
+              <NavLink
+                to="/dashboard"
                 className="flex items-center gap-3 group"
               >
                 <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg  group-hover:scale-105 transition-all">
@@ -107,15 +107,13 @@ const Navbar = () => {
                     <NavLink
                       key={item.to}
                       to={item.to}
-                      className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-500 group ${
-                        isActive(item.to)
-                          ? "bg-emerald-600 text-white shadow-md "
-                          : "text-slate-500 hover:text-emerald-600 hover:bg-emerald-50"
-                      }`}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-500 group ${isActive(item.to)
+                        ? "bg-emerald-600 text-white shadow-md "
+                        : "text-slate-500 hover:text-emerald-600 hover:bg-emerald-50"
+                        }`}
                     >
-                      <Icon size={14} className={`${
-                        isActive(item.to) ? "text-white" : "text-slate-400 group-hover:text-emerald-500"
-                      }`} />
+                      <Icon size={14} className={`${isActive(item.to) ? "text-white" : "text-slate-400 group-hover:text-emerald-500"
+                        }`} />
                       {item.label}
                     </NavLink>
                   );
@@ -155,9 +153,8 @@ const Navbar = () => {
                       <span className="text-[10px] font-black text-slate-800 uppercase tracking-tight leading-none">{selectedFamilyMember?.name || user?.name}</span>
                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{selectedFamilyMember ? selectedFamilyMember.relation : 'Primary'}</span>
                     </div>
-                    <ChevronDown size={14} className={`text-slate-300 transition-transform duration-300 ${
-                      isProfileMenuOpen ? "rotate-180" : ""
-                    }`} />
+                    <ChevronDown size={14} className={`text-slate-300 transition-transform duration-300 ${isProfileMenuOpen ? "rotate-180" : ""
+                      }`} />
                   </button>
 
                   {/* Profile Dropdown */}
@@ -170,16 +167,16 @@ const Navbar = () => {
 
                       <div className="px-2 py-2 border-b border-slate-50 bg-slate-50/50">
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-3">Quick Profile Switch</p>
-                        <button 
+                        <button
                           onClick={() => { selectMember(null); setIsProfileMenuOpen(false); }}
                           className={`flex items-center justify-between w-full px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest mb-1 ${!selectedFamilyMember ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-white hover:shadow-sm'}`}
                         >
                           <span>Primary (Me)</span>
                           {!selectedFamilyMember && <Check size={12} />}
                         </button>
-                        
+
                         {familyMembers.map(member => (
-                          <button 
+                          <button
                             key={member._id}
                             onClick={() => { selectMember(member._id); setIsProfileMenuOpen(false); }}
                             className={`flex items-center justify-between w-full px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest mb-1 ${selectedFamilyMember?._id === member._id ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-white hover:shadow-sm'}`}
@@ -201,7 +198,7 @@ const Navbar = () => {
                             <Users size={15} />
                             Manage Family
                           </NavLink>
-                          
+
                           <NavLink
                             to="/profile"
                             className="flex items-center gap-3 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-colors"
@@ -211,7 +208,7 @@ const Navbar = () => {
                             My Profile
                           </NavLink>
                         </div>
-                        
+
                         <div className="border-t border-slate-50 mt-1 pt-1 p-1">
                           <button
                             onClick={() => {
@@ -248,7 +245,7 @@ const Navbar = () => {
               onClick={() => setIsMobileMenuOpen(false)}
               className="lg:hidden fixed inset-0 bg-slate-800/30 z-[55]"
             />
-            
+
             {/* Menu Content */}
             <motion.div
               initial={{ x: "-100%" }}
@@ -287,11 +284,10 @@ const Navbar = () => {
                       <NavLink
                         key={item.to}
                         to={item.to}
-                        className={`flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 ${
-                          active
-                            ? "bg-emerald-600 text-white shadow-md"
-                            : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-600"
-                        }`}
+                        className={`flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 ${active
+                          ? "bg-emerald-600 text-white shadow-md"
+                          : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-600"
+                          }`}
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <Icon size={20} className={active ? "text-white" : "text-slate-400"} />
@@ -304,7 +300,7 @@ const Navbar = () => {
                 {/* 2. Quick Actions Timeline */}
                 <div className="relative pl-2">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-6 ml-1">Quick Entries</p>
-                  
+
                   <div className="space-y-8">
                     {/* Entry 1 */}
                     <NavLink
@@ -335,45 +331,45 @@ const Navbar = () => {
                     </NavLink>
                   </div>
                 </div>
-                
+
                 {/* 3. Account Settings (Moved from Dropdown for Mobile) */}
                 <div className="space-y-4 pt-4 border-t border-slate-50">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] ml-1">Settings</p>
-                   <div className="grid grid-cols-1 gap-2">
-                      <NavLink
-                        to="/family"
-                        className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl transition-all hover:bg-emerald-50 hover:border-emerald-100 group"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-emerald-600 shadow-sm">
-                          <Users size={18} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight">Manage Family</p>
-                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Control access & members</p>
-                        </div>
-                      </NavLink>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] ml-1">Settings</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <NavLink
+                      to="/family"
+                      className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl transition-all hover:bg-emerald-50 hover:border-emerald-100 group"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-emerald-600 shadow-sm">
+                        <Users size={18} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight">Manage Family</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Control access & members</p>
+                      </div>
+                    </NavLink>
 
-                      <NavLink
-                        to="/profile"
-                        className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl transition-all hover:bg-emerald-50 hover:border-emerald-100 group"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-emerald-600 shadow-sm">
-                          <User size={15} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight">My Profile</p>
-                        </div>
-                      </NavLink>
-                   </div>
+                    <NavLink
+                      to="/profile"
+                      className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl transition-all hover:bg-emerald-50 hover:border-emerald-100 group"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-emerald-600 shadow-sm">
+                        <User size={15} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight">My Profile</p>
+                      </div>
+                    </NavLink>
+                  </div>
                 </div>
               </div>
-              
+
               {/* Sidebar Footer */}
               <div className="p-6 bg-slate-50/80 backdrop-blur-md border-t border-slate-100">
                 <div className="flex items-center gap-3">
-                   <button
+                  <button
                     onClick={() => {
                       logout();
                       setIsMobileMenuOpen(false);
