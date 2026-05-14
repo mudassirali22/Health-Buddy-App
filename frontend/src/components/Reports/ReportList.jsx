@@ -24,6 +24,24 @@ import ConfirmModal from '../common/ConfirmModal';
 
 const ReportList = () => {
   const { selectedFamilyMember } = useFamily();
+  
+  const isReportAbnormal = (report) => {
+    const values = report?.aiSummary?.abnormalValues;
+    if (!values || values.length === 0) return false;
+    
+    const text = values.join(' ').toLowerCase().trim();
+    const safePhrases = [
+      'information not available',
+      'analysis unavailable',
+      'none',
+      'normal',
+      'no abnormal',
+      'nothing abnormal',
+      'within normal'
+    ];
+    
+    return !safePhrases.some(phrase => text.includes(phrase));
+  };
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -49,7 +67,10 @@ const ReportList = () => {
       if (isInitial) setLoading(true);
       const params = selectedFamilyMember ? { familyMember: selectedFamilyMember._id } : { familyMember: 'null' };
       const response = await api.get('/reports', { params });
-      setReports(response.data.data || []);
+      
+      // Ensure latest reports appear first by default
+      const sortedReports = (response.data.data || []).sort((a, b) => new Date(b.date) - new Date(a.date));
+      setReports(sortedReports);
     } catch (error) {
       console.error('Error fetching reports:', error);
     } finally {
@@ -89,15 +110,12 @@ const ReportList = () => {
       // Priority/Status Filter
       let matchesPriority = true;
       if (priorityFilter !== 'all') {
-        const status = report.aiAnalysis?.overallAssessment?.status?.toLowerCase() || '';
-        const risk = report.aiAnalysis?.overallAssessment?.riskLevel?.toLowerCase() || '';
+        const isAbnormal = isReportAbnormal(report);
         
-        if (priorityFilter === 'critical') {
-          matchesPriority = status === 'critical' || risk === 'very high' || risk === 'high';
-        } else if (priorityFilter === 'abnormal') {
-          matchesPriority = status === 'needs attention' || status === 'fair' || risk === 'moderate';
+        if (priorityFilter === 'critical' || priorityFilter === 'abnormal') {
+          matchesPriority = isAbnormal;
         } else if (priorityFilter === 'stable') {
-          matchesPriority = status === 'excellent' || status === 'good' || risk === 'low' || risk === 'very low';
+          matchesPriority = !isAbnormal;
         }
       }
 
@@ -121,17 +139,8 @@ const ReportList = () => {
      
      const recent = reports.filter(r => new Date(r.date) >= sevenDaysAgo).length;
      
-     const critical = reports.filter(r => {
-       const status = r.aiAnalysis?.overallAssessment?.status?.toLowerCase() || '';
-       const risk = r.aiAnalysis?.overallAssessment?.riskLevel?.toLowerCase() || '';
-       return status === 'critical' || risk === 'very high' || risk === 'high';
-     }).length;
-
-     const stable = reports.filter(r => {
-       const status = r.aiAnalysis?.overallAssessment?.status?.toLowerCase() || '';
-       const risk = r.aiAnalysis?.overallAssessment?.riskLevel?.toLowerCase() || '';
-       return status === 'good' || status === 'excellent' || risk === 'low' || risk === 'very low';
-     }).length;
+     const critical = reports.filter(r => isReportAbnormal(r)).length;
+     const stable = reports.filter(r => !isReportAbnormal(r)).length;
      
      return { total, recent, critical, stable };
   }, [reports]);
@@ -333,9 +342,14 @@ const ReportList = () => {
                   <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-all border border-slate-50">
                     <FileText size={24} />
                   </div>
-                  <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider">
-                    {report.reportType}
-                  </span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm">
+                      {report.reportType}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm ${isReportAbnormal(report) ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                      {isReportAbnormal(report) ? 'Abnormal' : 'Stable'}
+                    </span>
+                  </div>
                 </div>
 
                 <h3 className="text-lg font-black text-slate-800 mb-2 group-hover:text-emerald-600 transition-colors line-clamp-1 leading-tight uppercase tracking-tight">

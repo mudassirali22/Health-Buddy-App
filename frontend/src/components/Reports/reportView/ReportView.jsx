@@ -33,6 +33,24 @@ const ReportView = () => {
     errorMessage: ''
   });
 
+  const isReportAbnormal = (rep) => {
+    const values = rep?.aiSummary?.abnormalValues;
+    if (!values || values.length === 0) return false;
+    
+    const text = values.join(' ').toLowerCase().trim();
+    const safePhrases = [
+      'information not available',
+      'analysis unavailable',
+      'none',
+      'normal',
+      'no abnormal',
+      'nothing abnormal',
+      'within normal'
+    ];
+    
+    return !safePhrases.some(phrase => text.includes(phrase));
+  };
+
   useEffect(() => {
     fetchReport();
   }, [id]);
@@ -185,8 +203,11 @@ const ReportView = () => {
                     <span className="bg-slate-800 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest print:bg-slate-100 print:text-slate-800">
                       {report.reportType}
                     </span>
+                    <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest print:border print:border-slate-300 print:bg-transparent ${isReportAbnormal(report) ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                      {isReportAbnormal(report) ? 'Abnormal' : 'Stable'}
+                    </span>
                     <span className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest bg-slate-50 px-4 py-1.5 rounded-xl border border-slate-100 print:bg-transparent print:border-none print:p-0">
-                      <Calendar size={14} className="text-emerald-500" />
+                      <Calendar size={14} className="text-emerald-500 print:text-slate-400" />
                       {formatDate(report.date)}
                     </span>
                   </div>
