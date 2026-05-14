@@ -127,7 +127,7 @@ const Navbar = () => {
                     to="/upload-report"
                     className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 rounded-xl transition-all duration-300 group"
                   >
-                    <FileText size={16} className="text-slate-400 group-hover:text-emerald-500" />
+                    <Plus  size={16} className="text-slate-400 group-hover:text-emerald-500" />
                     <p className="text-[9px] font-black uppercase tracking-widest">Report</p>
                   </NavLink>
 
@@ -135,7 +135,7 @@ const Navbar = () => {
                     to="/add-vitals"
                     className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all duration-300 shadow-md "
                   >
-                    <Activity size={16} />
+                    <Plus size={16} />
                     <p className="text-[9px] font-black uppercase tracking-widest">Vitals</p>
                   </NavLink>
                 </div>
@@ -252,7 +252,7 @@ const Navbar = () => {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 200 }}
-              className="lg:hidden fixed inset-y-0 left-0 w-[85%] max-w-sm bg-white z-[60] shadow-2xl flex flex-col overflow-hidden"
+              className="lg:hidden fixed inset-y-0 left-0 w-[70%] max-w-[280px] bg-white z-[60] shadow-2xl flex flex-col overflow-hidden"
             >
               {/* Sidebar Header */}
               <div className="relative p-6 pb-4 flex items-center justify-between border-b border-slate-50">

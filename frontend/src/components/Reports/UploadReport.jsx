@@ -232,10 +232,14 @@ const UploadReport = () => {
                  </div>
                )}
 
-               <button type="submit" disabled={uploading || (!isEdit && !file)} className="w-full bg-slate-800 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 shadow-md  transition-all disabled:opacity-50 active:scale-95 flex items-center justify-center gap-3">
-
-                  {uploading ? 'Processing...' : (isEdit ? 'Update Report Details' : 'Upload Report')}
-               </button>
+               <div className="flex gap-4">
+                  <button type="submit" disabled={uploading || (!isEdit && !file)} className="flex-1 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700 shadow-md transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-100 opacity-70">
+                     {uploading ? 'Processing...' : (isEdit ? 'Update Report Details' : 'Upload Report')}
+                  </button>
+                  <button type="button" onClick={() => navigate('/reports')} className="px-8 py-4 bg-slate-100 text-slate-600 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95">
+                     Cancel
+                  </button>
+               </div>
             </form>
          </div>
 

@@ -28,11 +28,11 @@ const ControlsBar = ({
 
       <div className="flex flex-col sm:flex-row gap-3">
         {/* Filter Dropdown */}
-        <div className="standard-card flex items-center bg-white group hover:border-emerald-200 transition-all overflow-hidden">
+        <div className="standard-card relative flex items-center bg-white group hover:border-emerald-200 transition-all overflow-hidden">
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="w-full bg-transparent border-none py-3 px-4 text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none"
+            className="w-full bg-transparent border-none py-3 pl-4 pr-10 text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none"
           >
             <option value="all">All Results</option>
             <option value="excellent">Healthy / Normal</option>
@@ -41,19 +41,21 @@ const ControlsBar = ({
             <option value="needs attention">Needs Checkup</option>
             <option value="critical">Critical</option>
           </select>
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         </div>
 
         {/* Sort Dropdown */}
-        <div className="standard-card flex items-center bg-white group hover:border-emerald-200 transition-all overflow-hidden">
+        <div className="standard-card relative flex items-center bg-white group hover:border-emerald-200 transition-all overflow-hidden">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="w-full bg-transparent border-none py-3 px-4 text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none"
+            className="w-full bg-transparent border-none py-3 pl-4 pr-10 text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none"
           >
             <option value="date">Newest First</option>
             <option value="score">Health Score</option>
             <option value="metrics">Most Data</option>
           </select>
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         </div>
 
         {/* Bulk Actions - Show only when items are selected */}

@@ -110,13 +110,13 @@ const ReportView = () => {
     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-8 animate-in fade-in duration-500 print:p-0 print:max-w-none print:m-0">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          body { background: white !important; }
-          .no-print { display: none !important; }
+          body { background: white !important; padding: 1.5cm !important; }
+          .no-print, nav, header { display: none !important; }
           .print-only { display: block !important; }
           .standard-card { border: 1px solid #e2e8f0 !important; box-shadow: none !important; }
           .bg-slate-800 { background: #0f172a !important; color: white !important; -webkit-print-color-adjust: exact; }
           .bg-emerald-600 { background: #059669 !important; color: white !important; -webkit-print-color-adjust: exact; }
-          @page { margin: 2cm; }
+          @page { margin: 0; }
         }
       `}} />
 
@@ -142,9 +142,6 @@ const ReportView = () => {
         <div className="flex items-center gap-2">
           <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg ">
             <Download size={14} /> Download PDF
-          </button>
-          <button className="p-2.5 bg-white border border-slate-100 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all shadow-sm">
-            <Share2 size={18} />
           </button>
           <button
             onClick={openDeleteModal}
@@ -172,10 +169,10 @@ const ReportView = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column */}
-        <div className="lg:col-span-8 space-y-8">
+        <div className="lg:col-span-8 space-y-8 print:col-span-12 print:w-full">
 
           {/* Report Header */}
-          <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-md  relative overflow-hidden print:border-none print:p-0 print:shadow-none">
+          <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-md  relative overflow-hidden print:border-none print:p-0 print:shadow-none print:mb-6">
 
             <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="flex items-start gap-6">
@@ -188,7 +185,7 @@ const ReportView = () => {
                     <span className="bg-slate-800 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest print:bg-slate-100 print:text-slate-800">
                       {report.reportType}
                     </span>
-                    <span className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest bg-slate-50 px-4 py-1.5 rounded-xl border border-slate-100 print:bg-transparent print:border-none">
+                    <span className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest bg-slate-50 px-4 py-1.5 rounded-xl border border-slate-100 print:bg-transparent print:border-none print:p-0">
                       <Calendar size={14} className="text-emerald-500" />
                       {formatDate(report.date)}
                     </span>
@@ -206,7 +203,7 @@ const ReportView = () => {
 
             {/* AI Summary */}
             {report.aiSummary && (
-              <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 italic">
+              <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 italic print:bg-slate-50/50 print:border-none print:mt-4 print:p-4">
                 <p className="text-sm font-bold text-slate-600 leading-relaxed">
                   "{typeof report.aiSummary === 'string' ? report.aiSummary : (report.aiSummary.mainObservations?.[0] || 'Report analyzed successfully.')}"
                 </p>
@@ -258,8 +255,11 @@ const ReportView = () => {
                 </div>
               </div>
 
-              <div className={activeTab === 'preview' ? 'block' : 'hidden no-print'}>
-                <ReportPreview fileUrl={report.fileUrl} />
+              <div className={activeTab === 'preview' ? 'block' : 'hidden print:block'}>
+                <div className="mt-12">
+                   <h2 className="hidden print-only text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Original Report</h2>
+                   <ReportPreview fileUrl={report.fileUrl} />
+                </div>
               </div>
 
               <div className="mt-12 pt-8 border-t border-slate-50">
@@ -285,13 +285,6 @@ const ReportView = () => {
           {/* AI Score Card */}
           <div className="bg-slate-800 rounded-2xl p-6 text-white shadow-md relative overflow-hidden group">
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-8">
-                <div className="w-12 h-12 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/10">
-                  <Zap size={24} className="text-emerald-400" />
-                </div>
-                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20">Live Sync</span>
-              </div>
-
               <h3 className="text-2xl font-black tracking-tight mb-4 uppercase">AI Status</h3>
               <p className="text-slate-400 text-sm font-bold leading-relaxed mb-8">
                 Your medical data is analyzed using global health standards.
@@ -334,7 +327,7 @@ const ReportView = () => {
 
       {/* Print Footer */}
       <div className="hidden print-only mt-12 pt-8 border-t border-slate-200 text-center">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Report by HealthBuddy AI Clinical System</p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">REPORT BY HEALTHBUDDY AI</p>
         <p className="text-[8px] font-bold text-slate-300 uppercase tracking-tight mt-1">© {new Date().getFullYear()} HealthBuddy. Private Record.</p>
       </div>
     </div>

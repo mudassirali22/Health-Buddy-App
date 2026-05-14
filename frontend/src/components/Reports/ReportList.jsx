@@ -255,15 +255,16 @@ const ReportList = () => {
               className="w-full bg-slate-50/50 border-none rounded-xl pl-12 pr-4 py-3 text-xs focus:ring-1 focus:ring-emerald-500 outline-none font-semibold uppercase tracking-tight"
             />
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex gap-2 w-full sm:w-auto relative">
             <select 
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="bg-slate-50/50 border-none rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none flex-1 sm:w-40 cursor-pointer hover:bg-slate-100 transition-all"
+              className="appearance-none bg-slate-50/50 border-none rounded-xl pl-4 pr-10 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none flex-1 sm:w-40 cursor-pointer hover:bg-slate-100 transition-all shadow-sm"
             >
               <option value="date">Newest First</option>
               <option value="title">A-Z Order</option>
             </select>
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
         </div>
 
