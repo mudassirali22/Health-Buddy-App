@@ -23,6 +23,7 @@ import {
   Scale
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getDetailedHealthAnalysis } from '../Vitals/VitalsLists/components/healthAnalysis';
 
 const Timeline = () => {
   const { selectedFamilyMember } = useFamily();
@@ -71,14 +72,50 @@ const Timeline = () => {
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       const matchesFilter = filter === 'all' || item.type === filter;
-      const matchesSearch = 
-        item.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      const matchesSearch =
+        item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.reportType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.notes && item.notes.toLowerCase().includes(searchTerm.toLowerCase()));
       return matchesFilter && matchesSearch;
     });
   }, [items, filter, searchTerm]);
+
+  // Determines priority status for both reports and vitals in the timeline
+  const getItemPriority = (item) => {
+    if (item.type === 'report') {
+      const values = item?.aiSummary?.abnormalValues;
+      if (!values || values.length === 0) return 'Stable';
+
+      if (values.length === 1) {
+        const val = values[0].trim();
+        if (val === "Information not available from analysis" ||
+            val === "Analysis unavailable - consult your doctor" ||
+            val.toLowerCase() === "none" ||
+            val.toLowerCase() === "normal") {
+          return 'Stable';
+        }
+      }
+
+      const text = values.join(' ').toLowerCase().trim();
+      if (text.includes('no abnormal') ||
+          text.includes('nothing abnormal') ||
+          text.includes('within normal limits')) {
+        return 'Stable';
+      }
+      return 'Abnormal';
+    } else {
+      const analysis = getDetailedHealthAnalysis(item);
+      const status = analysis.status;
+      
+      if (status === 'Critical') {
+        return 'Critical';
+      } else if (status === 'Needs Attention' || status === 'Fair') {
+        return 'Abnormal';
+      }
+      return 'Stable';
+    }
+  };
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -101,17 +138,16 @@ const Timeline = () => {
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 space-y-8 animate-in fade-in duration-500">
       
       {/* Header Banner - Dashboard Style */}
-      <div className="bg-white rounded-3xl p-8 border border-emerald-100 shadow-md  flex flex-col md:flex-row md:items-center justify-between gap-8 relative overflow-hidden">
+      <div className="bg-white rounded-3xl p-8 border border-emerald-100 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50 rounded-full -translate-y-1/2 translate-x-1/2 opacity-20 blur-3xl"></div>
-        
+
         <div className="relative z-10 flex items-center gap-6">
-          <div className="w-16 h-16 bg-emerald-600 from-emerald-600 to-emerald-700 rounded-2xl flex items-center justify-center text-white shadow-lg ">
+          <div className="w-16 h-16 bg-emerald-600 from-emerald-600 to-emerald-700 rounded-2xl flex items-center justify-center text-white shadow-lg">
             <History size={32} />
           </div>
           <div>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-none mb-2 uppercase">My Health Archive</h1>
             <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                {selectedFamilyMember ? `Recent logs for ${selectedFamilyMember.name}` : 'A complete history of your medical scans and vitals'}
             </div>
           </div>
@@ -120,9 +156,9 @@ const Timeline = () => {
         <div className="flex flex-wrap items-center gap-4 relative z-10">
           <div className="relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16} />
-            <input 
-              type="text" 
-              placeholder="Search health events..." 
+            <input
+              type="text"
+              placeholder="Search health events..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-6 py-3.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500/10 outline-none w-full sm:w-64 transition-all"
@@ -130,10 +166,10 @@ const Timeline = () => {
           </div>
           <div className="flex bg-slate-100/50 p-1.5 rounded-2xl border border-slate-100">
             {['all', 'report', 'vital'].map(f => (
-              <button 
+              <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-emerald-600 text-white shadow-md ' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 {f}s
               </button>
@@ -150,16 +186,16 @@ const Timeline = () => {
             </div>
             <History className="absolute bottom-[-10px] right-[-10px] text-white/5 group-hover:scale-110 transition-transform" size={80} />
          </div>
-         <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-md  flex items-center justify-between">
+         <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-md flex items-center justify-between">
             <div>
-               <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Medical Scans</p>
+               <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">medical reports</p>
                <h3 className="text-3xl font-black text-slate-800">{items.filter(i => i.type === 'report').length}</h3>
             </div>
             <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center border border-emerald-100">
                <FileText size={24} />
             </div>
          </div>
-         <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-md  flex items-center justify-between">
+         <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-md flex items-center justify-between">
             <div>
                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Vital Checks</p>
                <h3 className="text-3xl font-black text-slate-800">{items.filter(i => i.type === 'vital').length}</h3>
@@ -168,7 +204,7 @@ const Timeline = () => {
                <Activity size={24} />
             </div>
          </div>
-         <div className="bg-emerald-600 rounded-3xl p-6 text-white shadow-md  flex items-center justify-between">
+         <div className="bg-emerald-600 rounded-3xl p-6 text-white shadow-md flex items-center justify-between">
             <div>
                <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80 mb-2">Health Priority</p>
                <h3 className="text-lg font-black uppercase tracking-tighter">AI Analysis</h3>
@@ -211,7 +247,7 @@ const Timeline = () => {
                   
                   {/* Date Tag */}
                   <div className="hidden md:flex flex-1 justify-center">
-                     <div className="bg-slate-800 text-white px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg  flex items-center gap-3">
+                      <div className="bg-slate-800 text-white px-8 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-lg flex items-center gap-3">
                         <Calendar size={16} className="text-emerald-400" />
                         {formatDate(item.date)}
                      </div>
@@ -235,7 +271,7 @@ const Timeline = () => {
                       <div className="flex items-center justify-between mb-5 md:mb-8 relative z-10">
                          <div className="flex flex-wrap items-center gap-2 md:gap-3">
                             <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1 md:px-4 md:py-1.5 rounded-xl shadow-sm ${item.type === 'report' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'}`}>
-                               {item.type === 'report' ? 'Medical Scan' : 'Health Vitals'}
+                               {item.type === 'report' ? 'Medical report' : 'Health Vitals'}
                             </span>
                             {item.reportType && (
                               <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.reportType}</span>
@@ -271,8 +307,19 @@ const Timeline = () => {
                              </div>
                            ))}
                         </div>
-                        <div className="flex items-center justify-end gap-2 text-emerald-600 text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] mt-6 md:mt-8 group-hover:gap-3 transition-all">
-                           View Full Record <ArrowRight size={14} className="md:w-4 md:h-4" />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6 mt-6 md:mt-8 relative z-10">
+                           <div className="flex flex-wrap items-center gap-2 md:gap-4">
+                               <div className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest ${
+                                 getItemPriority(item) === 'Critical' ? 'bg-red-50 text-red-600 border border-red-100 shadow-sm' :
+                                 getItemPriority(item) === 'Abnormal' ? 'bg-amber-50 text-amber-600 border border-amber-100 shadow-sm' :
+                                 'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm'
+                               }`}>
+                                  {getItemPriority(item)}
+                               </div>
+                           </div>
+                           <div className="flex items-center gap-2 text-emerald-600 text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] group-hover:gap-3 transition-all self-end sm:self-auto">
+                              View Full Record <ArrowRight size={14} className="md:w-4 md:h-4" />
+                           </div>
                         </div>
                       </>
                       ) : (
@@ -286,11 +333,11 @@ const Timeline = () => {
                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
                               <div className="flex flex-wrap items-center gap-2 md:gap-4">
                                  <div className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest ${
-                                   item.priority === 'critical' ? 'bg-red-50 text-red-600 border border-red-100 shadow-sm' :
-                                   item.priority === 'abnormal' ? 'bg-amber-50 text-amber-600 border border-amber-100 shadow-sm' :
+                                   getItemPriority(item) === 'Critical' ? 'bg-red-50 text-red-600 border border-red-100 shadow-sm' :
+                                   getItemPriority(item) === 'Abnormal' ? 'bg-amber-50 text-amber-600 border border-amber-100 shadow-sm' :
                                    'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm'
                                  }`}>
-                                    {item.priority || 'Normal'}
+                                    {getItemPriority(item)}
                                  </div>
                                  <span className="text-[9px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest border-l border-slate-100 pl-2 md:pl-4">Provider: {item.doctor || 'AI'}</span>
                               </div>
