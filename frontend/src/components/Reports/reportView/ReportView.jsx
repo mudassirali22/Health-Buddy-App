@@ -37,18 +37,27 @@ const ReportView = () => {
     const values = rep?.aiSummary?.abnormalValues;
     if (!values || values.length === 0) return false;
     
+    // Check for exact backend fallback strings
+    if (values.length === 1) {
+      const val = values[0].trim();
+      if (val === "Information not available from analysis" || 
+          val === "Analysis unavailable - consult your doctor" ||
+          val.toLowerCase() === "none" ||
+          val.toLowerCase() === "normal") {
+        return false;
+      }
+    }
+
     const text = values.join(' ').toLowerCase().trim();
-    const safePhrases = [
-      'information not available',
-      'analysis unavailable',
-      'none',
-      'normal',
-      'no abnormal',
-      'nothing abnormal',
-      'within normal'
-    ];
     
-    return !safePhrases.some(phrase => text.includes(phrase));
+    // Precise safe phrases
+    if (text.includes('no abnormal') || 
+        text.includes('nothing abnormal') || 
+        text.includes('within normal limits')) {
+      return false;
+    }
+    
+    return true;
   };
 
   useEffect(() => {
