@@ -15,9 +15,10 @@ const app = express();
 
 // Middleware
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL?.replace(/\/$/, ''),
+  'https://healthbuddyapp.vercel.app',
   'http://localhost:5173'
-];
+].filter(Boolean);
 
 app.use(
   cors({
